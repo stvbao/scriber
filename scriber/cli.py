@@ -61,13 +61,23 @@ def run_cli(args):
     from scriber.core.diarize import diarize
     from scriber.core.merge import merge
 
+    TRANSLATION_MODEL = "large-v3"
+
     for file_path in args.files:
         file = Path(file_path)
         print(f"Processing: {file.name}")
 
         audio = load_audio(file)
-        task = "translate" if args.translate else "transcribe"
-        segments = transcribe(audio, model=args.model, language=args.language, device=args.device, task=task)
+        if args.translate:
+            eff_model = TRANSLATION_MODEL
+            task = "translate"
+            if eff_model != args.model:
+                print(f"  Using {eff_model} for translation (turbo doesn't support it)")
+        else:
+            eff_model = args.model
+            task = "transcribe"
+
+        segments, _ = transcribe(audio, model=eff_model, language=args.language, device=args.device, task=task)
 
         if args.annotate and args.hf_token:
             speakers = diarize(file, hf_token=args.hf_token)

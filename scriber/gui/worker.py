@@ -39,7 +39,7 @@ class Worker(QThread):
         num_speakers    = cfg["num_speakers"]
         pause_markers   = cfg["pause_markers"]
         pause_threshold = cfg["pause_threshold"]
-        task            = "translate" if cfg.get("translate") else "transcribe"
+        translate       = cfg.get("translate", False)
 
         if not files:
             self.log.emit("No files selected.")
@@ -59,6 +59,9 @@ class Worker(QThread):
         backend       = _get_backend(device)
         backend_label = "MLX" if backend == "mlx" else "faster-whisper"
 
+        # Translation: large-v3 required (turbo doesn't support it)
+        TRANSLATION_MODEL = "large-v3"
+
         failed      = []
         batch_start = perf_counter()
 
@@ -73,40 +76,48 @@ class Worker(QThread):
                 file_output = output_folder / file.stem
                 file_output.mkdir(parents=True, exist_ok=True)
 
-                # Load audio
+                # ── Audio ────────────────────────────────────────────────────
                 self.log.emit("  Loading audio...")
                 self.suspend_pulse.emit()
                 audio = load_audio(file)
                 self.log.emit(f"  Audio length: {_fmt(len(audio) / 16000)}")
 
-                # Download / load model
-                self.log.emit("")
-                if not _is_model_cached(model, backend):
-                    repo = _model_repo(model, backend)
-                    self.log.emit(f"  Downloading {model} ({backend_label}) — first time only:")
-                    download_model(repo, log=self._emit, hf_token=hf_token)
-                    self.log.emit("  Download complete.")
+                # Determine effective model and task
+                if translate:
+                    eff_model = TRANSLATION_MODEL
+                    task      = "translate"
                 else:
-                    self.log.emit(f"  Model: {model} ({backend_label}) — loaded from cache")
+                    eff_model = model
+                    task      = "transcribe"
 
-                # Transcribe
-                self.log.emit("  Transcribing...")
-                segments = transcribe(audio, model=model, language=language, device=device, task=task)
-                self.log.emit("  Transcription complete.")
+                # ── Models ───────────────────────────────────────────────────
+                self.log.emit("")
+                self.log.emit(f"  Transcription model: {eff_model} ({backend_label})")
+                if not _is_model_cached(eff_model, backend):
+                    self.log.emit("  Downloading, first time only...")
+                    self.suspend_pulse.emit()
+                    download_model(_model_repo(eff_model, backend), log=self._emit, hf_token=hf_token)
 
-                # Diarize
                 if hf_token:
-                    self.log.emit("")
+                    self.log.emit("  Annotation model: speaker-diarization-community-1")
                     if not _is_pyannote_cached():
-                        self.log.emit("  Downloading speaker annotation model — first time only:")
+                        self.log.emit("  Downloading, first time only...")
+                        self.suspend_pulse.emit()
                         download_model(
                             "pyannote/speaker-diarization-community-1",
                             log=self._emit, hf_token=hf_token,
                         )
-                        self.log.emit("  Download complete.")
-                    else:
-                        self.log.emit("  Speaker annotation model — loaded from cache")
 
+                # ── Transcribe ───────────────────────────────────────────────
+                action = "Translating to English" if task == "translate" else "Transcribing"
+                self.log.emit("")
+                self.log.emit(f"  {action}...")
+                segments, _ = transcribe(audio, model=eff_model, language=language, device=device, task=task)
+                self.log.emit(f"  {action} complete.")
+
+                # ── Annotate ─────────────────────────────────────────────────
+                if hf_token:
+                    self.log.emit("")
                     self.reset_timer.emit()
                     self.log.emit("  Annotating speakers...")
                     speakers = diarize(
@@ -119,7 +130,7 @@ class Worker(QThread):
                     self.log.emit(f"  Speakers identified: {unique}")
                     segments = [s for s in segments if s.speaker is not None]
 
-                # Export
+                # ── Export ───────────────────────────────────────────────────
                 self.log.emit("")
                 out_stem = file_output / file.stem
                 do_export(segments, out_stem, formats=export,
@@ -149,9 +160,20 @@ class Worker(QThread):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+_MLX_REPOS = {
+    "large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
+    "large-v3":       "mlx-community/whisper-large-v3-mlx",
+    "large-v2":       "mlx-community/whisper-large-v2-mlx",
+    "medium":         "mlx-community/whisper-medium-mlx",
+    "small":          "mlx-community/whisper-small-mlx",
+    "base":           "mlx-community/whisper-base-mlx",
+    "tiny":           "mlx-community/whisper-tiny-mlx",
+}
+
+
 def _model_repo(model: str, backend: str) -> str:
     if backend == "mlx":
-        return f"mlx-community/whisper-{model}"
+        return _MLX_REPOS.get(model, f"mlx-community/whisper-{model}")
     return f"Systran/faster-whisper-{model}"
 
 
@@ -163,12 +185,18 @@ def _scriber_cache() -> Path:
 def _is_model_cached(model: str, backend: str) -> bool:
     cache = _scriber_cache()
     if backend == "mlx":
-        return (cache / f"models--mlx-community--whisper-{model}").exists()
+        repo = _MLX_REPOS.get(model, f"mlx-community/whisper-{model}")
+        slug = repo.replace("/", "--")
+        return (cache / f"models--{slug}").exists()
     return (cache / f"models--Systran--faster-whisper-{model}").exists()
 
 
 def _is_pyannote_cached() -> bool:
     return (_scriber_cache() / "models--pyannote--speaker-diarization-community-1").exists()
+
+
+def _is_nllb_cached() -> bool:
+    return (_scriber_cache() / "models--facebook--nllb-200-distilled-600M").exists()
 
 
 def _fmt(seconds: float) -> str:

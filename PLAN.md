@@ -217,6 +217,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Pyannote receives pre-loaded audio tensor (avoids re-decoding source file)
 - [x] Pyannote pipeline cached in memory across batch files
 - [x] Translate to English checkbox (all models + backends, MLX + faster-whisper)
+- [x] Download progress preserves "Downloading, first time only..." line in GUI log
 
 ### Phase 5 — Packaging
 - [ ] PyInstaller spec file for Mac → `.app` → unsigned DMG
@@ -227,11 +228,15 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [ ] Test on clean machines (no Python, no dev tools)
 
 ### Phase 6 — Polish
-- [ ] Auto model download with progress in GUI
+- [x] Auto model download with progress in GUI
 - [ ] User-friendly error messages (no stack traces for end users)
 - [ ] Hallucination suppression (VAD filter already in faster-whisper)
 - [ ] Large file handling (chunking for memory)
 - [ ] README for end users (non-technical)
+
+### Backlog — Future Features
+- [x] **Text translation via NLLB-200** — `facebook/nllb-200-distilled-600M` via transformers pipeline. Translates transcript text segments to English after transcription. Works with any Whisper model including turbo (Whisper turbo's audio translation is broken). ~600MB one-time download.
+- [ ] **Dual-language output** — "Export language" dropdown: `Original` / `English` / `Both`. When `Both`, transcribe once (original language) then run NLLB-200 on segments for English. Diarization runs once, speaker labels merge into both outputs.
 
 ---
 

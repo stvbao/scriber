@@ -13,6 +13,8 @@ dependencies = [
     "torch>=2.0.0",
     "torchaudio>=2.0.0",
     "mlx-whisper>=0.4.3",
+    "transformers>=4.30.0",
+    "sentencepiece>=0.1.99",
 ]
 
 [project.optional-dependencies]

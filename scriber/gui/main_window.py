@@ -220,6 +220,7 @@ class MainWindow(QMainWindow):
         self._pulse_timer.timeout.connect(self._pulse)
         self._pulse_idx    = 0
         self._pulse_active = False
+        self._replace_active = False
         self._pulse_start  = 0.0
 
     def _build_ui(self):
@@ -330,14 +331,23 @@ class MainWindow(QMainWindow):
 
         # Translate to English
         self.translate_check = CheckBox()
+        self.translate_check.stateChanged.connect(self._on_translate_changed)
         grid.addWidget(lbl("Translate to English:"), row, 0)
         grid.addWidget(self.translate_check, row, 1, Qt.AlignmentFlag.AlignLeft)
+        row += 1
+
+        self.translate_warn = QLabel("⚠ large-v3 will be used (turbo does not support)")
+        self.translate_warn.setObjectName("dim")
+        self.translate_warn.setWordWrap(True)
+        self.translate_warn.hide()
+        grid.addWidget(self.translate_warn, row, 0, 1, 2)
         row += 1
 
         # Model
         self.model_combo = QComboBox()
         self.model_combo.addItems(MODELS)
         self.model_combo.wheelEvent = lambda e: e.ignore()
+        self.model_combo.currentTextChanged.connect(self._on_translate_changed)
         grid.addWidget(lbl("Model:"), row, 0)
         grid.addWidget(self.model_combo, row, 1)
         row += 1
@@ -421,7 +431,7 @@ class MainWindow(QMainWindow):
         self.log_box.setReadOnly(True)
         self.log_box.setStyleSheet(f"""
             QTextEdit {{
-                background: {PANEL}; color: {TEXT};
+                background: {PANEL}; color: #ffffff;
                 border: 1px solid {BORDER}; border-radius: 8px;
                 font-family: {MONO}; font-size: 12px; padding: 14px;
             }}
@@ -430,6 +440,10 @@ class MainWindow(QMainWindow):
         return wrapper
 
     # ── Actions ───────────────────────────────────────────────────────────────
+
+    def _on_translate_changed(self):
+        turbo = "turbo" in self.model_combo.currentText()
+        self.translate_warn.setVisible(self.translate_check.isChecked() and turbo)
 
     def _browse_files(self):
         exts = " ".join(f"*{e}" for e in sorted(AUDIO_EXTENSIONS))
@@ -487,6 +501,7 @@ class MainWindow(QMainWindow):
         import time
         self.log_box.append("")
         self._pulse_active = False
+        self._replace_active = False
         self._pulse_idx    = 0
         self._pulse_start  = time.perf_counter()  # start once, never reset
         self.worker = Worker(config)
@@ -514,6 +529,7 @@ class MainWindow(QMainWindow):
 
     def _on_done(self):
         self._pulse_timer.stop()
+        self._replace_active = False
         self._set_btn_start()
 
     def _set_btn_start(self):
@@ -548,11 +564,13 @@ class MainWindow(QMainWindow):
         else:
             self.log_box.append(line)
             self._pulse_active = True
+        self._replace_active = False
         self.log_box.setTextCursor(cursor)
         self.log_box.ensureCursorVisible()
 
     def _log(self, msg: str):
         self._pulse_active = False
+        self._replace_active = False
         self._pulse_timer.start()  # resume pulse after download finishes
         ts   = datetime.now().strftime("%H:%M:%S")
         text = f"\n[{ts}] {msg.lstrip()}" if msg.startswith("\n") else f"[{ts}] {msg}"
@@ -565,9 +583,13 @@ class MainWindow(QMainWindow):
         self._pulse_active = False
         ts     = datetime.now().strftime("%H:%M:%S")
         text   = f"[{ts}] {msg}"
-        cursor = self.log_box.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        cursor.select(cursor.SelectionType.LineUnderCursor)
-        cursor.insertText(text)
-        self.log_box.setTextCursor(cursor)
+        if self._replace_active:
+            cursor = self.log_box.textCursor()
+            cursor.movePosition(cursor.MoveOperation.End)
+            cursor.select(cursor.SelectionType.LineUnderCursor)
+            cursor.insertText(text)
+            self.log_box.setTextCursor(cursor)
+        else:
+            self.log_box.append(text)
+            self._replace_active = True
         self.log_box.ensureCursorVisible()
