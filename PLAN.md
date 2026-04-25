@@ -155,34 +155,35 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 
 ## Build Phases
 
-### Phase 1 — Core (target: 2 weeks)
-- [ ] Set up project with uv + pyproject.toml
-- [ ] `audio.py` — PyAV loading, resample to 16kHz mono float32
-- [ ] `transcribe.py` — faster-whisper first (Mac + Windows), platform auto-detect
-- [ ] `export.py` — txt, srt, vtt, json, md, html
-- [ ] `cli.py` — basic CLI working end to end
-- [ ] Test on Mac + Windows with real interview files
+### Phase 1 — Core
+- [x] Set up project with uv + pyproject.toml
+- [x] `audio.py` — PyAV loading, resample to 16kHz mono float32
+- [x] `transcribe.py` — faster-whisper first (Mac + Windows), platform auto-detect
+- [x] `export.py` — txt, srt, vtt, json, md, html
+- [x] `cli.py` — basic CLI working end to end
+- [x] Test on Mac with real interview files (Serbian + English, large-v3-turbo)
+- [ ] Test on Windows
 
-### Phase 2 — MLX (target: 1 week)
+### Phase 2 — MLX
 - [ ] Add MLX-Whisper path in `transcribe.py`
 - [ ] Auto-detect Apple Silicon + macOS version
 - [ ] Benchmark vs faster-whisper on same file
 - [ ] Fallback to faster-whisper if MLX unavailable
 
-### Phase 3 — Speaker Annotation (target: 1 week)
+### Phase 3 — Speaker Annotation
 - [ ] `diarize.py` — pyannote v4 pipeline
 - [ ] `merge.py` — overlap-based speaker assignment
 - [ ] Add `--annotate` + `--hf-token` to CLI
 - [ ] Test with multi-speaker interview files
 
-### Phase 4 — GUI (target: 1 week)
+### Phase 4 — GUI
 - [ ] Port existing Transcriber PyQt6 GUI to new core
 - [ ] Replace whisply subprocess calls with direct core module calls
 - [ ] Progress signals from core → GUI worker thread
 - [ ] Settings panel: HF token, default model, default export format
 - [ ] Model download progress bar on first run
 
-### Phase 5 — Packaging (target: 1 week)
+### Phase 5 — Packaging
 - [ ] PyInstaller spec file for Mac → `.app` → unsigned DMG
 - [ ] PyInstaller spec file for Windows → `.exe` → zip
 - [ ] GitHub Actions workflow: build both on git tag push
