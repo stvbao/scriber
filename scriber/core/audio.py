@@ -11,22 +11,29 @@ def load_audio(path: Path) -> np.ndarray:
     import av
 
     container = av.open(str(path))
-    stream = next(s for s in container.streams if s.type == "audio")
+    try:
+        stream = next((s for s in container.streams if s.type == "audio"), None)
+        if stream is None:
+            raise ValueError(f"No audio stream found in {path}")
 
-    resampler = av.AudioResampler(
-        format="fltp",
-        layout="mono",
-        rate=TARGET_SR,
-    )
+        resampler = av.AudioResampler(
+            format="fltp",
+            layout="mono",
+            rate=TARGET_SR,
+        )
 
-    chunks = []
-    for frame in container.decode(stream):
-        for resampled in resampler.resample(frame):
+        chunks = []
+        for frame in container.decode(stream):
+            for resampled in resampler.resample(frame):
+                chunks.append(resampled.to_ndarray()[0])
+
+        # Flush resampler
+        for resampled in resampler.resample(None):
             chunks.append(resampled.to_ndarray()[0])
 
-    # Flush resampler
-    for resampled in resampler.resample(None):
-        chunks.append(resampled.to_ndarray()[0])
+        if not chunks:
+            raise ValueError(f"No audio frames decoded from {path}")
+    finally:
+        container.close()
 
-    container.close()
     return np.concatenate(chunks).astype(np.float32)

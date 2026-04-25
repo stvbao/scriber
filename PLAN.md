@@ -40,14 +40,17 @@ scriber/
 │   ├── cli.py               ← CLI argument parsing + runner
 │   ├── app.py               ← GUI launcher
 │   ├── core/
+│   │   ├── batch.py         ← shared batch pipeline + neutral log/progress events
 │   │   ├── audio.py         ← PyAV audio loading + resampling to 16kHz mono
 │   │   ├── transcribe.py    ← MLX / faster-whisper, auto-selects backend
 │   │   ├── diarize.py       ← pyannote v4 speaker diarization
 │   │   ├── merge.py         ← align transcript segments with speaker labels
+│   │   ├── model_cache.py   ← model repo labels + Scriber cache helpers
+│   │   ├── download.py      ← Hugging Face model download progress callback
 │   │   └── export.py        ← txt / srt / vtt / json export
 │   └── gui/
 │       ├── main_window.py   ← PyQt6 main window
-│       ├── worker.py        ← QThread background worker
+│       ├── worker.py        ← killable GUI worker subprocess wrapper
 │       └── widgets.py       ← custom UI components
 ├── tests/
 ├── Formula/
@@ -137,6 +140,10 @@ Uses **pyannote v4** — `pyannote/speaker-diarization-community-1`
 scriber app
 scriber              # no args also launches GUI
 
+# Manage model cache
+scriber cache path
+scriber cache clear
+
 # Transcribe
 scriber transcribe interview.m4a
 scriber transcribe interview.m4a --model large-v3-turbo --export srt
@@ -218,6 +225,9 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Pyannote pipeline cached in memory across batch files
 - [x] Translate to English checkbox (all models + backends, MLX + faster-whisper)
 - [x] Download progress preserves "Downloading, first time only..." line in GUI log
+- [x] Hard stop: GUI runs transcription batch in a killable worker subprocess
+- [x] GUI log colors/style modeled after CLI output
+- [x] Shared batch pipeline (`core/batch.py`) used by GUI worker subprocess and CLI
 
 ### Phase 5 — Packaging
 - [x] PyInstaller spec file for Mac → `.app` → unsigned DMG (`scriber-mac.spec`)
@@ -225,10 +235,14 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] GitHub Actions workflow: build both on git tag push (`.github/workflows/release.yml`)
 - [x] Homebrew formula (`Formula/scriber.rb`)
 - [x] PowerShell install script for Windows (`scripts/install.ps1`)
+- [ ] Resolve pyannote/torchcodec native FFmpeg packaging without requiring user-installed FFmpeg
+- [ ] Consider isolating speaker annotation in its own phase subprocess to avoid PyAV/torchcodec FFmpeg collisions
 - [ ] Test on clean machines (no Python, no dev tools)
 
 ### Phase 6 — Polish
 - [x] Auto model download with progress in GUI
+- [x] CLI progress/activity styling aligned with GUI
+- [x] CLI cache management commands (`scriber cache path`, `scriber cache clear`)
 - [ ] User-friendly error messages (no stack traces for end users)
 - [ ] Hallucination suppression (VAD filter already in faster-whisper)
 - [ ] Large file handling (chunking for memory)

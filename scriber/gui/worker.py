@@ -1,207 +1,153 @@
 from __future__ import annotations
-from pathlib import Path
-from time import perf_counter
 
-from PyQt6.QtCore import QThread, pyqtSignal
+import json
+import sys
+
+from PyQt6.QtCore import QObject, QProcess, pyqtSignal
+
+from scriber.core.batch import BatchConfig, run_batch
 
 
-class Worker(QThread):
-    log           = pyqtSignal(str)   # append new line
-    log_replace   = pyqtSignal(str)   # overwrite last line
-    reset_timer   = pyqtSignal()      # reset elapsed timer for new file
-    suspend_pulse = pyqtSignal()      # pause the pulse while busy (no log_replace)
-
+class Worker(QObject):
+    log = pyqtSignal(str)           # append new line
+    log_replace = pyqtSignal(str)   # overwrite last line
+    reset_timer = pyqtSignal()      # reset elapsed timer for new file
+    suspend_pulse = pyqtSignal()    # pause the pulse while busy (no log_replace)
+    resume_pulse = pyqtSignal(str)  # resume elapsed pulse for long-running work
     done = pyqtSignal()
 
     def __init__(self, config: dict):
         super().__init__()
-        self.config = config
-        self._stop  = False
+        self.config = BatchConfig.from_mapping(config)
+        self._process = QProcess(self)
+        self._process.setProcessChannelMode(QProcess.ProcessChannelMode.SeparateChannels)
+        self._stdout_buffer = ""
+        self._stderr_buffer = ""
+        self._done_emitted = False
+        self._stopping = False
+        self._config_json = json.dumps(self.config.to_mapping(), ensure_ascii=False)
+
+        self._process.started.connect(self._write_config)
+        self._process.readyReadStandardOutput.connect(self._read_stdout)
+        self._process.readyReadStandardError.connect(self._read_stderr)
+        self._process.errorOccurred.connect(self._on_error)
+        self._process.finished.connect(self._on_finished)
+
+    def start(self):
+        program, args = _worker_command()
+        self._process.start(program, args)
 
     def stop(self):
-        self._stop = True
+        self.terminate()
 
-    def _emit(self, msg: str):
-        if msg.startswith("\r"):
-            self.log_replace.emit(msg[1:])
+    def terminate(self):
+        self._stopping = True
+        if self.isRunning():
+            self._process.kill()
         else:
-            self.log.emit(msg)
+            self._emit_done()
 
-    def run(self):
-        cfg           = self.config
-        files         = cfg["files"]
-        output_folder = Path(cfg["output_folder"])
-        language      = cfg["language"] or None
-        device        = cfg["device"]
-        export        = cfg["export"]
-        model         = cfg["model"]
-        hf_token        = cfg["hf_token"] or None
-        num_speakers    = cfg["num_speakers"]
-        pause_markers   = cfg["pause_markers"]
-        pause_threshold = cfg["pause_threshold"]
-        translate       = cfg.get("translate", False)
+    def wait(self, timeout_ms: int | None = 0) -> bool:
+        timeout = -1 if timeout_ms is None else timeout_ms
+        return self._process.waitForFinished(timeout)
 
-        if not files:
-            self.log.emit("No files selected.")
-            self.done.emit()
+    def isRunning(self) -> bool:
+        return self._process.state() != QProcess.ProcessState.NotRunning
+
+    def _write_config(self):
+        self._process.write(self._config_json.encode("utf-8"))
+        self._process.closeWriteChannel()
+
+    def _read_stdout(self):
+        chunk = bytes(self._process.readAllStandardOutput()).decode("utf-8", errors="replace")
+        self._stdout_buffer += chunk
+        while "\n" in self._stdout_buffer:
+            line, self._stdout_buffer = self._stdout_buffer.split("\n", 1)
+            self._handle_stdout_line(line)
+
+    def _read_stderr(self):
+        chunk = bytes(self._process.readAllStandardError()).decode("utf-8", errors="replace")
+        self._stderr_buffer += chunk
+
+    def _handle_stdout_line(self, line: str):
+        if not line:
+            return
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            self.log.emit(line)
             return
 
-        self.log.emit("─" * 40)
-        self.log.emit(f"Found {len(files)} file(s) to process...")
-
-        from scriber.core.audio import load_audio
-        from scriber.core.transcribe import transcribe, _get_backend
-        from scriber.core.diarize import diarize
-        from scriber.core.merge import merge
-        from scriber.core.export import export as do_export
-        from scriber.core.download import download_model
-
-        backend       = _get_backend(device)
-        backend_label = "MLX" if backend == "mlx" else "faster-whisper"
-
-        # Translation: large-v3 required (turbo doesn't support it)
-        TRANSLATION_MODEL = "large-v3"
-
-        failed      = []
-        batch_start = perf_counter()
-
-        for i, file in enumerate(files, 1):
-            if self._stop:
-                break
-            self.log.emit(f"\n[{i}/{len(files)}] {file.name}")
+        event_type = event.get("type")
+        message = event.get("message") or ""
+        if event_type == "log":
+            self.log.emit(message)
+        elif event_type == "log_replace":
+            self.log_replace.emit(message)
+        elif event_type == "reset_timer":
             self.reset_timer.emit()
-            file_start = perf_counter()
+        elif event_type == "suspend_pulse":
+            self.suspend_pulse.emit()
+        elif event_type == "resume_pulse":
+            self.resume_pulse.emit(message)
 
-            try:
-                file_output = output_folder / file.stem
-                file_output.mkdir(parents=True, exist_ok=True)
+    def _on_error(self, error):
+        if self._stopping:
+            return
+        error_name = getattr(error, "name", str(error))
+        self.log.emit(f"✗ Worker process error: {error_name}")
+        self._emit_done()
 
-                # ── Audio ────────────────────────────────────────────────────
-                self.log.emit("  Loading audio...")
-                self.suspend_pulse.emit()
-                audio = load_audio(file)
-                self.log.emit(f"  Audio length: {_fmt(len(audio) / 16000)}")
+    def _on_finished(self, exit_code: int, _exit_status):
+        self._read_stdout()
+        self._read_stderr()
+        if self._stdout_buffer.strip():
+            self._handle_stdout_line(self._stdout_buffer.strip())
+        self._stdout_buffer = ""
 
-                # Determine effective model and task
-                if translate:
-                    eff_model = TRANSLATION_MODEL
-                    task      = "translate"
-                else:
-                    eff_model = model
-                    task      = "transcribe"
+        if exit_code != 0 and not self._stopping:
+            self.log.emit(f"✗ Worker process failed with exit code {exit_code}.")
+            details = self._stderr_buffer.strip()
+            if details:
+                for line in details.splitlines()[-8:]:
+                    self.log.emit(f"  Error: {line}")
 
-                # ── Models ───────────────────────────────────────────────────
-                self.log.emit("")
-                self.log.emit(f"  Transcription model: {eff_model} ({backend_label})")
-                if not _is_model_cached(eff_model, backend):
-                    self.log.emit("  Downloading, first time only...")
-                    self.suspend_pulse.emit()
-                    download_model(_model_repo(eff_model, backend), log=self._emit, hf_token=hf_token)
+        self._emit_done()
 
-                if hf_token:
-                    self.log.emit("  Annotation model: speaker-diarization-community-1")
-                    if not _is_pyannote_cached():
-                        self.log.emit("  Downloading, first time only...")
-                        self.suspend_pulse.emit()
-                        download_model(
-                            "pyannote/speaker-diarization-community-1",
-                            log=self._emit, hf_token=hf_token,
-                        )
-
-                # ── Transcribe ───────────────────────────────────────────────
-                action = "Translating to English" if task == "translate" else "Transcribing"
-                self.log.emit("")
-                self.log.emit(f"  {action}...")
-                segments, _ = transcribe(audio, model=eff_model, language=language, device=device, task=task)
-                self.log.emit(f"  {action} complete.")
-
-                # ── Annotate ─────────────────────────────────────────────────
-                if hf_token:
-                    self.log.emit("")
-                    self.reset_timer.emit()
-                    self.log.emit("  Annotating speakers...")
-                    speakers = diarize(
-                        audio,
-                        hf_token=hf_token,
-                        num_speakers=num_speakers if num_speakers > 0 else None,
-                    )
-                    segments = merge(segments, speakers)
-                    unique = len({s.speaker for s in speakers})
-                    self.log.emit(f"  Speakers identified: {unique}")
-                    segments = [s for s in segments if s.speaker is not None]
-
-                # ── Export ───────────────────────────────────────────────────
-                self.log.emit("")
-                out_stem = file_output / file.stem
-                do_export(segments, out_stem, formats=export,
-                          pause_markers=pause_markers, pause_threshold=pause_threshold)
-                elapsed = _fmt(perf_counter() - file_start)
-                self.log.emit(f"✓ Done in {elapsed}")
-                self.log.emit(f"  Saved to:{file_output}")
-
-            except Exception as e:
-                elapsed = _fmt(perf_counter() - file_start)
-                failed.append(file.name)
-                self.log.emit(f"✗ Failed: {file.name} ({elapsed})")
-                self.log.emit(f"  Error: {e}")
-
-        total = _fmt(perf_counter() - batch_start)
-        self.log.emit(f"\n{'─' * 40}")
-        if self._stop:
-            self.log.emit(f"◼ Stopped after {total}.")
-        elif failed:
-            self.log.emit(f"⚠ {len(files) - len(failed)}/{len(files)} file(s) completed in {total}.")
-            self.log.emit(f"  Failed: {', '.join(failed)}")
-        else:
-            self.log.emit(f"✓ {len(files)} file(s) transcribed in {total}.")
-            self.log.emit(f"  Saved to:{output_folder}")
+    def _emit_done(self):
+        if self._done_emitted:
+            return
+        self._done_emitted = True
         self.done.emit()
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+def run_worker_from_stdin() -> int:
+    try:
+        config = BatchConfig.from_mapping(json.loads(sys.stdin.read()))
+    except Exception as e:
+        _emit_process_event("log", "✗ Worker process could not read its configuration.")
+        _emit_process_event("log", f"  Error: {e}")
+        return 2
 
-_MLX_REPOS = {
-    "large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
-    "large-v3":       "mlx-community/whisper-large-v3-mlx",
-    "large-v2":       "mlx-community/whisper-large-v2-mlx",
-    "medium":         "mlx-community/whisper-medium-mlx",
-    "small":          "mlx-community/whisper-small-mlx",
-    "base":           "mlx-community/whisper-base-mlx",
-    "tiny":           "mlx-community/whisper-tiny-mlx",
-}
-
-
-def _model_repo(model: str, backend: str) -> str:
-    if backend == "mlx":
-        return _MLX_REPOS.get(model, f"mlx-community/whisper-{model}")
-    return f"Systran/faster-whisper-{model}"
+    try:
+        run_batch(config, _emit_process_event)
+    except Exception as e:
+        _emit_process_event("log", "✗ Worker process failed.")
+        _emit_process_event("log", f"  Error: {e}")
+        return 1
+    return 0
 
 
-def _scriber_cache() -> Path:
-    from platformdirs import user_cache_dir
-    return Path(user_cache_dir("scriber")) / "models"
+def _emit_process_event(event_type: str, message: str = "", **payload):
+    event = {"type": event_type, "message": message, **payload}
+    print(json.dumps(event, ensure_ascii=False), flush=True)
 
 
-def _is_model_cached(model: str, backend: str) -> bool:
-    cache = _scriber_cache()
-    if backend == "mlx":
-        repo = _MLX_REPOS.get(model, f"mlx-community/whisper-{model}")
-        slug = repo.replace("/", "--")
-        return (cache / f"models--{slug}").exists()
-    return (cache / f"models--Systran--faster-whisper-{model}").exists()
+def _worker_command() -> tuple[str, list[str]]:
+    if getattr(sys, "frozen", False):
+        return sys.executable, ["__gui_worker__"]
+    return sys.executable, ["-m", "scriber", "__gui_worker__"]
 
 
-def _is_pyannote_cached() -> bool:
-    return (_scriber_cache() / "models--pyannote--speaker-diarization-community-1").exists()
-
-
-def _is_nllb_cached() -> bool:
-    return (_scriber_cache() / "models--facebook--nllb-200-distilled-600M").exists()
-
-
-def _fmt(seconds: float) -> str:
-    m, s = divmod(seconds, 60)
-    h, m = divmod(int(m), 60)
-    if h:  return f"{h}h {m}m {s:.1f}s"
-    if m:  return f"{m}m {s:.1f}s"
-    return f"{seconds:.1f}s"
+if __name__ == "__main__":
+    raise SystemExit(run_worker_from_stdin())

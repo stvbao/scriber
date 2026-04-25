@@ -3,6 +3,7 @@
 from __future__ import annotations
 from pathlib import Path
 from dataclasses import dataclass
+from html import escape
 import json
 
 
@@ -120,19 +121,21 @@ def _export_md(segments, path: Path):
 def _export_html(segments, path: Path):
     blocks = []
     current_speaker = None
+    speaker_open = False
     for seg in segments:
         if seg.speaker and seg.speaker != current_speaker:
-            if blocks:
+            if speaker_open:
                 blocks.append("</div>")
             blocks.append(f'<div class="speaker">')
-            blocks.append(f'<h2>{seg.speaker}</h2>')
+            blocks.append(f'<h2>{escape(seg.speaker)}</h2>')
             current_speaker = seg.speaker
+            speaker_open = True
         if isinstance(seg, _Pause):
-            blocks.append(f'<p class="pause">{seg.text}</p>')
+            blocks.append(f'<p class="pause">{escape(seg.text)}</p>')
         else:
             ts = _ts_srt(seg.start)
-            blocks.append(f'<p><span class="ts">[{ts}]</span> {seg.text}</p>')
-    if blocks:
+            blocks.append(f'<p><span class="ts">[{ts}]</span> {escape(seg.text)}</p>')
+    if speaker_open:
         blocks.append("</div>")
 
     html = f"""<!DOCTYPE html>

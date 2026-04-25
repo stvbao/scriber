@@ -1,11 +1,12 @@
 from __future__ import annotations
 from pathlib import Path
 from datetime import datetime
+from html import escape
 
-from PyQt6.QtCore import Qt, QThread, QTimer, QRect, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QRect
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QLineEdit, QPushButton, QComboBox, QCheckBox,
     QScrollArea, QTextEdit, QFileDialog, QFrame, QSizePolicy,
     QListWidget,
@@ -53,6 +54,11 @@ RED_HV  = "#922b21"
 TEXT    = "#e8e8e8"
 DIM     = "#888888"
 MONO    = "Menlo, Monaco, Courier New"
+LOG_CYAN = "#4fc3f7"
+LOG_GREEN = "#79d28b"
+LOG_YELLOW = "#f0c36a"
+LOG_RED = "#ff7f7f"
+LOG_DIM = "#9a9a9a"
 
 WELCOME = (
     "<span style='color:#4fc3f7;font-size:14px;font-weight:600;'>Scriber is ready.</span><br><br>"
@@ -222,6 +228,9 @@ class MainWindow(QMainWindow):
         self._pulse_active = False
         self._replace_active = False
         self._pulse_start  = 0.0
+        self._pulse_label  = ""
+        self._hard_stopping = False
+        self._stopping_workers = []
 
     def _build_ui(self):
         root = QWidget()
@@ -468,11 +477,28 @@ class MainWindow(QMainWindow):
 
     def _toggle(self):
         if self.worker and self.worker.isRunning():
-            self.worker.stop()
-            self._set_btn_start()
-            self._log("Stopping after current file completes...")
+            self._hard_stop_worker()
         else:
             self._start()
+
+    def _hard_stop_worker(self):
+        worker = self.worker
+        if not worker:
+            return
+
+        self._hard_stopping = True
+        self._disconnect_worker(worker)
+        self._stopping_workers.append(worker)
+        worker.done.connect(lambda w=worker: self._forget_stopped_worker(w))
+        self._pulse_timer.stop()
+        self._pulse_active = False
+        self._replace_active = False
+        self._log("Stopped by user. Current file may be incomplete.")
+
+        worker.terminate()
+        self.worker = None
+        self._hard_stopping = False
+        self._set_btn_start()
 
     def _start(self):
         if not self._selected_files:
@@ -492,6 +518,7 @@ class MainWindow(QMainWindow):
             "export":          self.export_combo.currentText(),
             "model":           self.model_combo.currentText(),
             "hf_token":        self.hf_token_edit.text().strip() or None,
+            "annotate":        bool(self.hf_token_edit.text().strip()),
             "num_speakers":    num_speakers,
             "pause_markers":   self.pause_check.isChecked(),
             "pause_threshold": 2.0,
@@ -504,32 +531,50 @@ class MainWindow(QMainWindow):
         self._replace_active = False
         self._pulse_idx    = 0
         self._pulse_start  = time.perf_counter()  # start once, never reset
-        self.worker = Worker(config)
-        self.worker.log.connect(self._log)
-        self.worker.log_replace.connect(self._log_replace)
-        self.worker.reset_timer.connect(self._reset_pulse_timer)
-        self.worker.suspend_pulse.connect(self._suspend_pulse)
-        self.worker.done.connect(self._on_done)
-        self.worker.start()
+        self._pulse_label  = ""
+        self._hard_stopping = False
+
+        worker = Worker(config)
+        self.worker = worker
+        worker.log.connect(self._log_from_worker)
+        worker.log_replace.connect(self._log_replace_from_worker)
+        worker.reset_timer.connect(self._reset_pulse_timer)
+        worker.suspend_pulse.connect(self._suspend_pulse)
+        worker.resume_pulse.connect(self._resume_pulse)
+        worker.done.connect(self._on_done)
+        worker.start()
 
         self.start_btn.setText("Stop")
         self.start_btn.setProperty("stop", True)
         self.start_btn.style().unpolish(self.start_btn)
         self.start_btn.style().polish(self.start_btn)
-        self._pulse_timer.start()
 
     def _suspend_pulse(self):
+        if not self._worker_signal_current():
+            return
         self._pulse_timer.stop()
         self._pulse_active = False
 
+    def _resume_pulse(self, label: str):
+        if not self._worker_signal_current():
+            return
+        self._pulse_label = label
+        self._pulse_active = False
+        self._pulse_timer.start()
+
     def _reset_pulse_timer(self):
+        if not self._worker_signal_current():
+            return
         import time
         self._pulse_start  = time.perf_counter()
         self._pulse_active = False
 
     def _on_done(self):
+        if not self._worker_signal_current():
+            return
         self._pulse_timer.stop()
         self._replace_active = False
+        self.worker = None
         self._set_btn_start()
 
     def _set_btn_start(self):
@@ -554,13 +599,13 @@ class MainWindow(QMainWindow):
         self._pulse_idx += 1
 
         ts   = datetime.now().strftime("%H:%M:%S")
-        line = f"[{ts}]   {bar}  {elapsed_str} elapsed"
+        line = self._format_activity_line(ts, self._pulse_label or "Working", f"[{bar}]", elapsed_str)
 
         cursor = self.log_box.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
         if self._pulse_active:
             cursor.select(cursor.SelectionType.LineUnderCursor)
-            cursor.insertText(line)
+            cursor.insertHtml(line)
         else:
             self.log_box.append(line)
             self._pulse_active = True
@@ -571,25 +616,110 @@ class MainWindow(QMainWindow):
     def _log(self, msg: str):
         self._pulse_active = False
         self._replace_active = False
-        self._pulse_timer.start()  # resume pulse after download finishes
         ts   = datetime.now().strftime("%H:%M:%S")
-        text = f"\n[{ts}] {msg.lstrip()}" if msg.startswith("\n") else f"[{ts}] {msg}"
-        self.log_box.append(text)
+        html = self._format_log_line(ts, msg)
+        self.log_box.append(html)
         self.log_box.ensureCursorVisible()
+
+    def _log_from_worker(self, msg: str):
+        if self._worker_signal_current():
+            self._log(msg)
 
     def _log_replace(self, msg: str):
         """Overwrite the last line — used for download progress updates."""
         self._pulse_timer.stop()   # pause pulse while download is active
         self._pulse_active = False
         ts     = datetime.now().strftime("%H:%M:%S")
-        text   = f"[{ts}] {msg}"
+        text   = self._format_log_line(ts, msg)
         if self._replace_active:
             cursor = self.log_box.textCursor()
             cursor.movePosition(cursor.MoveOperation.End)
             cursor.select(cursor.SelectionType.LineUnderCursor)
-            cursor.insertText(text)
+            cursor.insertHtml(text)
             self.log_box.setTextCursor(cursor)
         else:
             self.log_box.append(text)
             self._replace_active = True
         self.log_box.ensureCursorVisible()
+
+    def _log_replace_from_worker(self, msg: str):
+        if self._worker_signal_current():
+            self._log_replace(msg)
+
+    def _worker_signal_current(self) -> bool:
+        return self.sender() is self.worker and not self._hard_stopping
+
+    def _disconnect_worker(self, worker: Worker):
+        for signal in (
+            worker.log,
+            worker.log_replace,
+            worker.reset_timer,
+            worker.suspend_pulse,
+            worker.resume_pulse,
+            worker.done,
+        ):
+            try:
+                signal.disconnect()
+            except TypeError:
+                pass
+
+    def _forget_stopped_worker(self, worker: Worker):
+        if worker in self._stopping_workers:
+            self._stopping_workers.remove(worker)
+        worker.deleteLater()
+
+    def closeEvent(self, event):
+        if self.worker and self.worker.isRunning():
+            self._hard_stop_worker()
+        event.accept()
+
+    def _format_log_line(self, ts: str, msg: str) -> str:
+        leading_break = msg.startswith("\n")
+        text = msg.lstrip("\n")
+        color = self._log_color(text)
+        prefix = escape(f"[{ts}] ")
+        body = escape(text)
+        line = f'<span style="color:{LOG_DIM};">{prefix}</span><span style="color:{color};">{body}</span>'
+        return f"<br>{line}" if leading_break else line
+
+    def _format_activity_line(self, ts: str, label: str, frame: str, elapsed: str) -> str:
+        prefix = escape(f"[{ts}] ")
+        label = escape(f"  {label}... ")
+        frame = escape(frame)
+        elapsed = escape(f"{elapsed} elapsed")
+        return (
+            f'<span style="color:{LOG_DIM};">{prefix}</span>'
+            f'<span style="color:{TEXT};">{label}</span>'
+            f'<span style="color:{LOG_CYAN};">{frame}</span> '
+            f'<span style="color:{LOG_DIM};">{elapsed}</span>'
+        )
+
+    def _log_color(self, text: str) -> str:
+        stripped = text.strip()
+        if not stripped:
+            return TEXT
+        if stripped == "Scriber" or set(stripped) == {"─"} or stripped.startswith("["):
+            return LOG_CYAN
+        if "model:" in stripped:
+            return LOG_CYAN
+        if (
+            stripped.startswith("✓")
+            or stripped.startswith("Saved to:")
+            or stripped.startswith("Output folder:")
+            or stripped.startswith("Completed ")
+        ):
+            return LOG_GREEN
+        if (
+            stripped.startswith("⚠")
+            or "no speaker label" in stripped
+            or stripped.startswith("Stopped by user")
+            or stripped.startswith("Please select")
+        ):
+            return LOG_YELLOW
+        if stripped.startswith("✗") or stripped.startswith("Error:"):
+            return LOG_RED
+        if "complete" in stripped or stripped.startswith("Done in"):
+            return LOG_GREEN
+        if stripped.startswith("Audio length:"):
+            return LOG_DIM
+        return TEXT
