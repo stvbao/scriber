@@ -153,6 +153,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 --device      auto|cpu|gpu|mlx (default: auto)
 --annotate    enable speaker annotation
 --hf-token    HuggingFace token
+--translate   translate audio to English (all models + backends)
 ```
 
 ---
@@ -178,6 +179,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] `export.py` — pause markers support (txt/md/html only)
 - [x] `download.py` — model download with progress bar callback
 - [x] `cli.py` — basic CLI working end to end
+- [x] `transcribe.py` — translation to English (`--translate` / `task="translate"`, all models + backends)
 - [x] Test on Mac with real interview files (Serbian + English, large-v3-turbo)
 - [ ] Test on Windows
 
@@ -214,6 +216,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Pyannote runs on MPS (Apple Silicon) or CUDA (NVIDIA), falls back to CPU
 - [x] Pyannote receives pre-loaded audio tensor (avoids re-decoding source file)
 - [x] Pyannote pipeline cached in memory across batch files
+- [x] Translate to English checkbox (all models + backends, MLX + faster-whisper)
 
 ### Phase 5 — Packaging
 - [ ] PyInstaller spec file for Mac → `.app` → unsigned DMG

@@ -207,8 +207,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Scriber")
-        self.setMinimumSize(1000, 700)
-        self.resize(1000, 700)
+        self.setMinimumSize(1000, 720)
+        self.resize(1000, 720)
         self.worker          = None
         self._selected_files = []
         self._output_folder  = Path.home() / "Downloads"
@@ -326,6 +326,12 @@ class MainWindow(QMainWindow):
         self.language_combo.wheelEvent = lambda e: e.ignore()
         grid.addWidget(lbl("Language:"), row, 0)
         grid.addWidget(self.language_combo, row, 1)
+        row += 1
+
+        # Translate to English
+        self.translate_check = CheckBox()
+        grid.addWidget(lbl("Translate to English:"), row, 0)
+        grid.addWidget(self.translate_check, row, 1, Qt.AlignmentFlag.AlignLeft)
         row += 1
 
         # Model
@@ -475,6 +481,7 @@ class MainWindow(QMainWindow):
             "num_speakers":    num_speakers,
             "pause_markers":   self.pause_check.isChecked(),
             "pause_threshold": 2.0,
+            "translate":       self.translate_check.isChecked(),
         }
 
         import time

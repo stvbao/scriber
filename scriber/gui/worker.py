@@ -39,6 +39,7 @@ class Worker(QThread):
         num_speakers    = cfg["num_speakers"]
         pause_markers   = cfg["pause_markers"]
         pause_threshold = cfg["pause_threshold"]
+        task            = "translate" if cfg.get("translate") else "transcribe"
 
         if not files:
             self.log.emit("No files selected.")
@@ -90,7 +91,7 @@ class Worker(QThread):
 
                 # Transcribe
                 self.log.emit("  Transcribing...")
-                segments = transcribe(audio, model=model, language=language, device=device)
+                segments = transcribe(audio, model=model, language=language, device=device, task=task)
                 self.log.emit("  Transcription complete.")
 
                 # Diarize

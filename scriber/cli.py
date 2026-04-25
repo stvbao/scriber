@@ -45,6 +45,10 @@ def parse_args():
         choices=["auto", "cpu", "gpu", "mlx"],
         help="Device to use (default: auto)",
     )
+    transcribe.add_argument(
+        "--translate", action="store_true",
+        help="Translate audio to English (instead of transcribing in source language)",
+    )
 
     return parser.parse_args()
 
@@ -62,7 +66,8 @@ def run_cli(args):
         print(f"Processing: {file.name}")
 
         audio = load_audio(file)
-        segments = transcribe(audio, model=args.model, language=args.language, device=args.device)
+        task = "translate" if args.translate else "transcribe"
+        segments = transcribe(audio, model=args.model, language=args.language, device=args.device, task=task)
 
         if args.annotate and args.hf_token:
             speakers = diarize(file, hf_token=args.hf_token)

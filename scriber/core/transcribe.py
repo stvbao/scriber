@@ -32,19 +32,24 @@ def transcribe(
     model: str = "large-v3-turbo",
     language: str | None = None,
     device: str = "auto",
+    task: str = "transcribe",
 ) -> list[Segment]:
     backend = _get_backend(device)
 
     if backend == "mlx":
-        return _transcribe_mlx(audio, model, language)
+        return _transcribe_mlx(audio, model, language, task)
     else:
-        return _transcribe_faster_whisper(audio, model, language, device)
+        return _transcribe_faster_whisper(audio, model, language, device, task)
 
 
-def _transcribe_mlx(audio: np.ndarray, model: str, language: str | None) -> list[Segment]:
+def _transcribe_mlx(
+    audio: np.ndarray,
+    model: str,
+    language: str | None,
+    task: str,
+) -> list[Segment]:
     import mlx_whisper
 
-    # MLX community models on HuggingFace
     model_map = {
         "large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
         "large-v3":       "mlx-community/whisper-large-v3",
@@ -56,7 +61,7 @@ def _transcribe_mlx(audio: np.ndarray, model: str, language: str | None) -> list
     }
     repo = model_map.get(model, f"mlx-community/whisper-{model}")
 
-    kwargs = {"path_or_hf_repo": repo}
+    kwargs = {"path_or_hf_repo": repo, "task": task}
     if language:
         kwargs["language"] = language
 
@@ -73,6 +78,7 @@ def _transcribe_faster_whisper(
     model: str,
     language: str | None,
     device: str,
+    task: str,
 ) -> list[Segment]:
     from faster_whisper import WhisperModel
 
@@ -88,6 +94,7 @@ def _transcribe_faster_whisper(
     segments, _ = fw_model.transcribe(
         audio,
         language=language,
+        task=task,
         vad_filter=True,
     )
 
