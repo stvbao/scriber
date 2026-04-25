@@ -77,9 +77,13 @@ class Worker(QThread):
                 # Download model if needed
                 if not _is_model_cached(model, backend, cache):
                     repo = _model_repo(model, backend)
-                    self.log.emit(f"  Downloading {model} ({backend_label}) — first time only, will be cached after:")
-                    download_model(repo, cache, log=self._emit, hf_token=hf_token)
-                    self.log.emit(f"  Download complete.")
+                    self.log.emit(f"  Downloading {model} ({backend_label}) — first time only, will be cached:")
+                    # MLX uses default HF cache; faster-whisper uses our custom cache_dir
+                    download_model(
+                        repo, cache, log=self._emit, hf_token=hf_token,
+                        use_hf_default=(backend == "mlx"),
+                    )
+                    self.log.emit("  Download complete.")
                 else:
                     self.log.emit(f"  Loading {model} ({backend_label}) from cache...")
 
@@ -150,7 +154,8 @@ def _is_model_cached(model: str, backend: str, cache: Path) -> bool:
     if backend == "mlx":
         hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
         return (hf_cache / f"models--mlx-community--whisper-{model}").exists()
-    return (cache / f"Systran--faster-whisper-{model}").exists()
+    # faster-whisper uses HF hub format: models--Systran--faster-whisper-{model}
+    return (cache / f"models--Systran--faster-whisper-{model}").exists()
 
 
 def _is_pyannote_cached() -> bool:
