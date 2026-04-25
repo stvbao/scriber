@@ -220,11 +220,11 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Download progress preserves "Downloading, first time only..." line in GUI log
 
 ### Phase 5 — Packaging
-- [ ] PyInstaller spec file for Mac → `.app` → unsigned DMG
-- [ ] PyInstaller spec file for Windows → `.exe` → zip
-- [ ] GitHub Actions workflow: build both on git tag push
-- [ ] Homebrew formula (`Formula/scriber.rb`)
-- [ ] PowerShell install script for Windows
+- [x] PyInstaller spec file for Mac → `.app` → unsigned DMG (`scriber-mac.spec`)
+- [x] PyInstaller spec file for Windows → `.exe` → zip (`scriber-win.spec`)
+- [x] GitHub Actions workflow: build both on git tag push (`.github/workflows/release.yml`)
+- [x] Homebrew formula (`Formula/scriber.rb`)
+- [x] PowerShell install script for Windows (`scripts/install.ps1`)
 - [ ] Test on clean machines (no Python, no dev tools)
 
 ### Phase 6 — Polish
