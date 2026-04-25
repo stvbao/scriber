@@ -25,7 +25,7 @@ def parse_args():
     )
     transcribe.add_argument(
         "--export", default="txt",
-        choices=["txt", "srt", "vtt", "json", "all"],
+        choices=["txt", "srt", "vtt", "json", "md", "html", "all"],
         help="Export format (default: txt)",
     )
     transcribe.add_argument(

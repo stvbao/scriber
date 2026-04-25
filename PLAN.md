@@ -159,7 +159,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [ ] Set up project with uv + pyproject.toml
 - [ ] `audio.py` — PyAV loading, resample to 16kHz mono float32
 - [ ] `transcribe.py` — faster-whisper first (Mac + Windows), platform auto-detect
-- [ ] `export.py` — txt, srt, vtt, json
+- [ ] `export.py` — txt, srt, vtt, json, md, html
 - [ ] `cli.py` — basic CLI working end to end
 - [ ] Test on Mac + Windows with real interview files
 
