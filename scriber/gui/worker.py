@@ -6,8 +6,10 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 
 class Worker(QThread):
-    log   = pyqtSignal(str)
-    done  = pyqtSignal()
+    log         = pyqtSignal(str)   # append new line
+    log_replace = pyqtSignal(str)   # overwrite last line
+
+    done = pyqtSignal()
 
     def __init__(self, config: dict):
         super().__init__()
@@ -16,6 +18,12 @@ class Worker(QThread):
 
     def stop(self):
         self._stop = True
+
+    def _emit(self, msg: str):
+        if msg.startswith("\r"):
+            self.log_replace.emit(msg[1:])
+        else:
+            self.log.emit(msg)
 
     def run(self):
         cfg           = self.config
@@ -41,9 +49,12 @@ class Worker(QThread):
         from scriber.core.diarize import diarize
         from scriber.core.merge import merge
         from scriber.core.export import export as do_export
+        from scriber.core.download import download_model
+        from platformdirs import user_cache_dir
 
-        backend = _get_backend(device)
+        backend       = _get_backend(device)
         backend_label = "MLX" if backend == "mlx" else "faster-whisper"
+        cache         = Path(user_cache_dir("scriber")) / "models"
 
         failed      = []
         batch_start = perf_counter()
@@ -58,24 +69,37 @@ class Worker(QThread):
             try:
                 output_folder.mkdir(parents=True, exist_ok=True)
 
+                # Load audio
                 self.log.emit("  Loading audio...")
                 audio = load_audio(file)
-                audio_dur = len(audio) / 16000
-                self.log.emit(f"  Audio: {_fmt(audio_dur)} loaded")
+                self.log.emit(f"  Audio: {_fmt(len(audio) / 16000)} loaded")
 
-                if _is_model_cached(model, backend):
-                    self.log.emit(f"  Loading {model} from cache ({backend_label})...")
+                # Download model if needed
+                if not _is_model_cached(model, backend, cache):
+                    repo = _model_repo(model, backend)
+                    self.log.emit(f"  Downloading {model} ({backend_label}) — first time only, will be cached after:")
+                    download_model(repo, cache, log=self._emit, hf_token=hf_token)
+                    self.log.emit(f"  Download complete.")
                 else:
-                    self.log.emit(f"  Downloading {model} — first time only, please wait...")
+                    self.log.emit(f"  Loading {model} ({backend_label}) from cache...")
 
+                # Transcribe
+                self.log.emit(f"  Transcribing...")
                 segments = transcribe(audio, model=model, language=language, device=device)
                 self.log.emit(f"  Transcribed: {len(segments)} segments")
 
+                # Diarize
                 if hf_token:
-                    if _is_pyannote_cached():
-                        self.log.emit("  Loading speaker annotation model from cache...")
+                    if not _is_pyannote_cached():
+                        self.log.emit("  Downloading speaker annotation model — first time only:")
+                        download_model(
+                            "pyannote/speaker-diarization-community-1",
+                            cache, log=self._emit, hf_token=hf_token,
+                        )
+                        self.log.emit("  Download complete.")
                     else:
-                        self.log.emit("  Downloading speaker annotation model — first time only...")
+                        self.log.emit("  Loading speaker annotation model from cache...")
+
                     speakers = diarize(
                         file,
                         hf_token=hf_token,
@@ -86,6 +110,7 @@ class Worker(QThread):
                     self.log.emit(f"  Speakers identified: {unique}")
                     segments = [s for s in segments if s.speaker is not None]
 
+                # Export
                 self.log.emit(f"  Saving to {output_folder}...")
                 out_stem = output_folder / file.stem
                 do_export(segments, out_stem, formats=export)
@@ -105,7 +130,7 @@ class Worker(QThread):
         if self._stop:
             self.log.emit(f"◼  Stopped after {total}.")
         elif failed:
-            self.log.emit(f"⚠  Finished with errors — {len(files) - len(failed)}/{len(files)} file(s) in {total}.")
+            self.log.emit(f"⚠  Finished with errors — {len(files) - len(failed)}/{len(files)} in {total}.")
             self.log.emit(f"   Failed: {', '.join(failed)}")
         else:
             self.log.emit(f"✓  All done — {len(files)} file(s) in {total}.")
@@ -115,16 +140,17 @@ class Worker(QThread):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _is_model_cached(model: str, backend: str) -> bool:
-    from platformdirs import user_cache_dir
-    cache = Path(user_cache_dir("scriber")) / "models"
+def _model_repo(model: str, backend: str) -> str:
+    if backend == "mlx":
+        return f"mlx-community/whisper-{model}"
+    return f"Systran/faster-whisper-{model}"
+
+
+def _is_model_cached(model: str, backend: str, cache: Path) -> bool:
     if backend == "mlx":
         hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
-        slug = f"models--mlx-community--whisper-{model}"
-        return (hf_cache / slug).exists()
-    else:
-        slug = f"models--Systran--faster-whisper-{model}"
-        return (cache / slug).exists()
+        return (hf_cache / f"models--mlx-community--whisper-{model}").exists()
+    return (cache / f"Systran--faster-whisper-{model}").exists()
 
 
 def _is_pyannote_cached() -> bool:

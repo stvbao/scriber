@@ -485,6 +485,7 @@ class MainWindow(QMainWindow):
         self._pulse_start  = 0.0
         self.worker = Worker(config)
         self.worker.log.connect(self._log)
+        self.worker.log_replace.connect(self._log_replace)
         self.worker.done.connect(self._on_done)
         self.worker.start()
 
@@ -542,4 +543,15 @@ class MainWindow(QMainWindow):
         ts   = datetime.now().strftime("%H:%M:%S")
         text = f"\n[{ts}] {msg.lstrip()}" if msg.startswith("\n") else f"[{ts}] {msg}"
         self.log_box.append(text)
+        self.log_box.ensureCursorVisible()
+
+    def _log_replace(self, msg: str):
+        """Overwrite the last line — used for download progress updates."""
+        ts     = datetime.now().strftime("%H:%M:%S")
+        text   = f"[{ts}] {msg}"
+        cursor = self.log_box.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        cursor.select(cursor.SelectionType.LineUnderCursor)
+        cursor.insertText(text)
+        self.log_box.setTextCursor(cursor)
         self.log_box.ensureCursorVisible()
