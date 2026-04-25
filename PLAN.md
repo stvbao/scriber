@@ -175,6 +175,8 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] `audio.py` — PyAV loading, resample to 16kHz mono float32
 - [x] `transcribe.py` — faster-whisper first (Mac + Windows), platform auto-detect
 - [x] `export.py` — txt, srt, vtt, json, md, html
+- [x] `export.py` — pause markers support (txt/md/html only)
+- [x] `download.py` — model download with progress bar callback
 - [x] `cli.py` — basic CLI working end to end
 - [x] Test on Mac with real interview files (Serbian + English, large-v3-turbo)
 - [ ] Test on Windows
@@ -190,6 +192,9 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] `merge.py` — overlap-based speaker assignment
 - [x] Add `--annotate` + `--hf-token` to CLI
 - [x] Full pipeline tested (transcribe + diarize + merge + export all formats)
+- [x] pyannote accepts pre-loaded audio tensor (no re-decoding)
+- [x] MPS / CUDA acceleration for pyannote; CPU fallback
+- [x] Pipeline cached in memory across batch files
 - [ ] Test with multi-speaker interview files
 
 ### Phase 4 — GUI
