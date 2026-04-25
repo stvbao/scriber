@@ -518,14 +518,13 @@ class MainWindow(QMainWindow):
         m, s     = divmod(int(elapsed), 60)
         elapsed_str = f"{m}m {s:02d}s" if m else f"{s}s"
 
-        # Sweeping block bar (10 chars wide, indeterminate)
-        pos    = self._pulse_idx % 10
-        bar    = "░" * 10
-        bar    = bar[:pos] + "█" + bar[pos + 1:]
+        pos  = self._pulse_idx % 5
+        bar  = "○○○○○"
+        bar  = bar[:pos] + "●" + bar[pos + 1:]
         self._pulse_idx += 1
 
         ts   = datetime.now().strftime("%H:%M:%S")
-        line = f"[{ts}]  [{bar}]  {elapsed_str} elapsed"
+        line = f"[{ts}]  {bar}  {elapsed_str} elapsed"
 
         cursor = self.log_box.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
