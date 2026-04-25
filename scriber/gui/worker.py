@@ -11,6 +11,7 @@ from scriber.core.batch import BatchConfig, run_batch
 class Worker(QObject):
     log = pyqtSignal(str)           # append new line
     log_replace = pyqtSignal(str)   # overwrite last line
+    finish_replace = pyqtSignal()   # finalize the current replacement line
     reset_timer = pyqtSignal()      # reset elapsed timer for new file
     suspend_pulse = pyqtSignal()    # pause the pulse while busy (no log_replace)
     resume_pulse = pyqtSignal(str)  # resume elapsed pulse for long-running work
@@ -84,6 +85,8 @@ class Worker(QObject):
             self.log.emit(message)
         elif event_type == "log_replace":
             self.log_replace.emit(message)
+        elif event_type == "finish_replace":
+            self.finish_replace.emit()
         elif event_type == "reset_timer":
             self.reset_timer.emit()
         elif event_type == "suspend_pulse":

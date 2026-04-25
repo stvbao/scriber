@@ -188,9 +188,6 @@ def run_batch(config: BatchConfig | dict[str, Any], emit: Emit) -> BatchResult:
                 segments = merge(segments, speakers)
                 unique = len({s.speaker for s in speakers})
                 emit("log", f"  Speakers identified: {unique}")
-                unassigned = sum(1 for s in segments if s.speaker is None)
-                if unassigned:
-                    emit("log", f"  {unassigned} transcript segment(s) had no speaker label; kept as unlabeled text.")
 
             emit("log", "")
             out_stem = file_output / file.stem

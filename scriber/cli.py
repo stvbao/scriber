@@ -34,9 +34,9 @@ def parse_args():
         help="Language code e.g. en, zh, fr (default: auto-detect)",
     )
     transcribe.add_argument(
-        "--export", default="txt",
+        "--export", default="all",
         choices=["txt", "srt", "vtt", "json", "md", "html", "all"],
-        help="Export format (default: txt)",
+        help="Export format (default: all)",
     )
     transcribe.add_argument(
         "--output", default=None,
@@ -201,7 +201,7 @@ class _BatchConsoleRenderer:
         if self.progress_active:
             self.console.finish_replace()
         elif self.last_progress and not self.console.progress:
-            self.console.line(self.last_progress)
+            self.console.line(self._style_log(self.last_progress))
         self.progress_active = False
         self.last_progress = None
 
@@ -220,26 +220,42 @@ class _BatchConsoleRenderer:
             return message
         if stripped == "Scriber":
             return self.console.style(message, "cyan", "bold")
+        special = self._style_special_log(message, stripped)
+        if special is not None:
+            return special
         if set(stripped) == {"─"} or stripped.startswith("["):
-            return self.console.style(message, "cyan")
-        if "model:" in stripped:
             return self.console.style(message, "cyan")
         if (
             stripped.startswith("✓")
-            or stripped.startswith("Saved to:")
-            or stripped.startswith("Output folder:")
             or stripped.startswith("Completed ")
             or "complete in" in stripped
             or stripped.startswith("Done in")
         ):
             return self.console.style(message, "green")
-        if stripped.startswith("⚠") or "no speaker label" in stripped:
+        if stripped.startswith("⚠"):
             return self.console.style(message, "yellow")
         if stripped.startswith("✗") or stripped.startswith("Error:"):
             return self.console.style(message, "red")
-        if stripped.startswith("Audio length:"):
+        if (
+            stripped.startswith("Audio length:")
+            or stripped.startswith("Loading audio")
+            or stripped.startswith("Speakers identified:")
+            or stripped.startswith("Output folder:")
+            or stripped.startswith("Downloading, first time only")
+            or stripped.startswith("Saved to:")
+        ):
             return self.console.style(message, "dim")
         return message
+
+    def _style_special_log(self, message: str, stripped: str) -> str | None:
+        leading = message[:len(message) - len(message.lstrip(" "))]
+        for label in ("Transcription model:", "Annotation model:"):
+            if stripped.startswith(label):
+                value = stripped[len(label):]
+                return f"{leading}{label}{self.console.style(value, 'cyan')}"
+        if _is_download_progress(stripped):
+            return self.console.style(message, "dim")
+        return None
 
 
 def _is_activity_start_log(message: str) -> bool:
@@ -248,6 +264,10 @@ def _is_activity_start_log(message: str) -> bool:
         "Translating to English...",
         "Annotating speakers...",
     }
+
+
+def _is_download_progress(text: str) -> bool:
+    return text.startswith("[") and "]" in text and "%" in text and " MB" in text
 
 
 def _fmt(seconds: float) -> str:

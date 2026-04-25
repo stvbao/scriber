@@ -17,6 +17,7 @@ from scriber.gui.worker import Worker
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 AUDIO_EXTENSIONS = {".mp3", ".mp4", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".wma"}
+ACTIVITY_START_MESSAGES = {"Transcribing...", "Translating to English...", "Annotating speakers..."}
 
 LANGUAGES = {
     "Auto-detect": "",
@@ -184,14 +185,17 @@ def stylesheet():
 class CheckBox(QCheckBox):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(20, 20)
+        self.setFixedSize(28, 28)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+    def hitButton(self, pos):
+        return self.rect().contains(pos)
 
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        box = QRect(2, 2, 16, 16)
+        box = QRect(6, 6, 16, 16)
         if self.isChecked():
             p.setBrush(QBrush(QColor(BLUE)))
             p.setPen(Qt.PenStyle.NoPen)
@@ -199,8 +203,8 @@ class CheckBox(QCheckBox):
             pen = QPen(QColor("white"), 2, Qt.PenStyle.SolidLine,
                        Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
             p.setPen(pen)
-            p.drawLine(5, 10, 8, 13)
-            p.drawLine(8, 13, 15, 6)
+            p.drawLine(9, 14, 12, 17)
+            p.drawLine(12, 17, 19, 10)
         else:
             p.setBrush(QBrush(QColor(BG)))
             p.setPen(QPen(QColor(BORDER), 1.5))
@@ -342,14 +346,20 @@ class MainWindow(QMainWindow):
         self.translate_check = CheckBox()
         self.translate_check.stateChanged.connect(self._on_translate_changed)
         grid.addWidget(lbl("Translate to English:"), row, 0)
-        grid.addWidget(self.translate_check, row, 1, Qt.AlignmentFlag.AlignLeft)
-        row += 1
-
-        self.translate_warn = QLabel("⚠ large-v3 will be used (turbo does not support)")
+        translate_row = QWidget()
+        translate_row.setObjectName("inlineRow")
+        translate_row.setStyleSheet("QWidget#inlineRow { background: transparent; }")
+        translate_layout = QHBoxLayout(translate_row)
+        translate_layout.setContentsMargins(0, 0, 0, 0)
+        translate_layout.setSpacing(8)
+        translate_layout.addWidget(self.translate_check)
+        self.translate_warn = QLabel("⚠ uses large-v3")
         self.translate_warn.setObjectName("dim")
-        self.translate_warn.setWordWrap(True)
+        self.translate_warn.setStyleSheet(f"color: {DIM}; font-size: 11px;")
         self.translate_warn.hide()
-        grid.addWidget(self.translate_warn, row, 0, 1, 2)
+        translate_layout.addWidget(self.translate_warn)
+        translate_layout.addStretch()
+        grid.addWidget(translate_row, row, 1)
         row += 1
 
         # Model
@@ -372,6 +382,7 @@ class MainWindow(QMainWindow):
         # Export
         self.export_combo = QComboBox()
         self.export_combo.addItems(EXPORT_FORMATS)
+        self.export_combo.setCurrentText("all")
         self.export_combo.wheelEvent = lambda e: e.ignore()
         grid.addWidget(lbl("Export Format:"), row, 0)
         grid.addWidget(self.export_combo, row, 1)
@@ -538,6 +549,7 @@ class MainWindow(QMainWindow):
         self.worker = worker
         worker.log.connect(self._log_from_worker)
         worker.log_replace.connect(self._log_replace_from_worker)
+        worker.finish_replace.connect(self._finish_replace_from_worker)
         worker.reset_timer.connect(self._reset_pulse_timer)
         worker.suspend_pulse.connect(self._suspend_pulse)
         worker.resume_pulse.connect(self._resume_pulse)
@@ -560,7 +572,9 @@ class MainWindow(QMainWindow):
             return
         self._pulse_label = label
         self._pulse_active = False
+        self._replace_active = False
         self._pulse_timer.start()
+        self._pulse()
 
     def _reset_pulse_timer(self):
         if not self._worker_signal_current():
@@ -622,8 +636,11 @@ class MainWindow(QMainWindow):
         self.log_box.ensureCursorVisible()
 
     def _log_from_worker(self, msg: str):
-        if self._worker_signal_current():
-            self._log(msg)
+        if not self._worker_signal_current():
+            return
+        if msg.strip() in ACTIVITY_START_MESSAGES:
+            return
+        self._log(msg)
 
     def _log_replace(self, msg: str):
         """Overwrite the last line — used for download progress updates."""
@@ -643,8 +660,16 @@ class MainWindow(QMainWindow):
         self.log_box.ensureCursorVisible()
 
     def _log_replace_from_worker(self, msg: str):
-        if self._worker_signal_current():
-            self._log_replace(msg)
+        if not self._worker_signal_current():
+            return
+        if self._pulse_active or self._pulse_timer.isActive():
+            return
+        self._log_replace(msg)
+
+    def _finish_replace_from_worker(self):
+        if not self._worker_signal_current():
+            return
+        self._replace_active = False
 
     def _worker_signal_current(self) -> bool:
         return self.sender() is self.worker and not self._hard_stopping
@@ -653,6 +678,7 @@ class MainWindow(QMainWindow):
         for signal in (
             worker.log,
             worker.log_replace,
+            worker.finish_replace,
             worker.reset_timer,
             worker.suspend_pulse,
             worker.resume_pulse,
@@ -676,15 +702,20 @@ class MainWindow(QMainWindow):
     def _format_log_line(self, ts: str, msg: str) -> str:
         leading_break = msg.startswith("\n")
         text = msg.lstrip("\n")
+        special = self._format_special_log_body(text)
+        if special:
+            line = f'<span style="color:{LOG_DIM};">{escape(f"[{ts}] ")}</span>{special}'
+            return f"<br>{line}" if leading_break else line
+
         color = self._log_color(text)
         prefix = escape(f"[{ts}] ")
-        body = escape(text)
+        body = _escape_preserving_leading_spaces(text)
         line = f'<span style="color:{LOG_DIM};">{prefix}</span><span style="color:{color};">{body}</span>'
         return f"<br>{line}" if leading_break else line
 
     def _format_activity_line(self, ts: str, label: str, frame: str, elapsed: str) -> str:
         prefix = escape(f"[{ts}] ")
-        label = escape(f"  {label}... ")
+        label = _escape_preserving_leading_spaces(f"  {label}... ")
         frame = escape(frame)
         elapsed = escape(f"{elapsed} elapsed")
         return (
@@ -693,6 +724,36 @@ class MainWindow(QMainWindow):
             f'<span style="color:{LOG_CYAN};">{frame}</span> '
             f'<span style="color:{LOG_DIM};">{elapsed}</span>'
         )
+
+    def _format_special_log_body(self, text: str) -> str | None:
+        leading, stripped = _split_leading_spaces(text)
+        indent = "&nbsp;" * len(leading)
+
+        for label in ("Transcription model:", "Annotation model:"):
+            if stripped.startswith(label):
+                value = stripped[len(label):]
+                return (
+                    f'<span style="color:{TEXT};">{indent}{escape(label)}</span>'
+                    f'<span style="color:{LOG_CYAN};">{_escape_preserving_leading_spaces(value)}</span>'
+                )
+
+        if stripped.startswith("Saved to:"):
+            return f'<span style="color:{LOG_DIM};">{_escape_preserving_leading_spaces(text)}</span>'
+
+        if _is_download_progress(stripped):
+            bar_end = stripped.find("]") + 1
+            bar = stripped[:bar_end]
+            stats = stripped[bar_end:]
+            spaces, pct, rest = _split_download_stats(stats)
+            return (
+                f'<span style="color:{TEXT};">{indent}</span>'
+                f'<span style="color:{LOG_DIM};">{escape(bar)}</span>'
+                f'<span style="color:{LOG_DIM};">{_escape_preserving_spaces(spaces)}</span>'
+                f'<span style="color:{LOG_DIM};">{escape(pct)}</span>'
+                f'<span style="color:{LOG_DIM};">{_escape_preserving_spaces(rest)}</span>'
+            )
+
+        return None
 
     def _log_color(self, text: str) -> str:
         stripped = text.strip()
@@ -704,14 +765,11 @@ class MainWindow(QMainWindow):
             return LOG_CYAN
         if (
             stripped.startswith("✓")
-            or stripped.startswith("Saved to:")
-            or stripped.startswith("Output folder:")
             or stripped.startswith("Completed ")
         ):
             return LOG_GREEN
         if (
             stripped.startswith("⚠")
-            or "no speaker label" in stripped
             or stripped.startswith("Stopped by user")
             or stripped.startswith("Please select")
         ):
@@ -720,6 +778,39 @@ class MainWindow(QMainWindow):
             return LOG_RED
         if "complete" in stripped or stripped.startswith("Done in"):
             return LOG_GREEN
-        if stripped.startswith("Audio length:"):
+        if (
+            stripped.startswith("Audio length:")
+            or stripped.startswith("Loading audio")
+            or stripped.startswith("Speakers identified:")
+            or stripped.startswith("Output folder:")
+        ):
+            return LOG_DIM
+        if stripped.startswith("Downloading, first time only"):
             return LOG_DIM
         return TEXT
+
+
+def _split_leading_spaces(text: str) -> tuple[str, str]:
+    leading_count = len(text) - len(text.lstrip(" "))
+    return text[:leading_count], text[leading_count:]
+
+
+def _escape_preserving_leading_spaces(text: str) -> str:
+    leading, stripped = _split_leading_spaces(text)
+    return ("&nbsp;" * len(leading)) + escape(stripped)
+
+
+def _escape_preserving_spaces(text: str) -> str:
+    return escape(text).replace(" ", "&nbsp;")
+
+
+def _is_download_progress(text: str) -> bool:
+    return text.startswith("[") and "]" in text and "%" in text and " MB" in text
+
+
+def _split_download_stats(stats: str) -> tuple[str, str, str]:
+    leading, rest = _split_leading_spaces(stats)
+    parts = rest.split(" ", 1)
+    pct = parts[0]
+    tail = f" {parts[1]}" if len(parts) > 1 else ""
+    return leading, pct, tail

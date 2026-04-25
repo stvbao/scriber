@@ -155,7 +155,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 # Options
 --model       tiny|base|small|medium|large-v2|large-v3|large-v3-turbo
 --language    en|zh|fr|de|... (default: auto-detect)
---export      txt|srt|vtt|json|all (default: txt)
+--export      txt|srt|vtt|json|md|html|all (default: all)
 --output      output directory
 --device      auto|cpu|gpu|mlx (default: auto)
 --annotate    enable speaker annotation
@@ -209,9 +209,10 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 ### Phase 4 — GUI
 - [x] Port existing Transcriber PyQt6 GUI to new core
 - [x] Replace whisply subprocess calls with direct core module calls
-- [x] Progress signals from core → GUI worker thread
+- [x] Progress/log events from shared core batch pipeline → CLI and GUI renderers
 - [x] Settings panel: HF token inline under Speaker annotation (no tabs)
 - [x] Export formats updated: txt, srt, vtt, json, md, html, all
+- [x] Default export format set to all in GUI and CLI
 - [x] Model download progress bar (custom tqdm → log_replace signal)
 - [x] Per-file elapsed timer (resets at start of each file, resets again at annotation)
 - [x] Pulse suspended during audio load and download to avoid overlap
@@ -224,9 +225,11 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Pyannote receives pre-loaded audio tensor (avoids re-decoding source file)
 - [x] Pyannote pipeline cached in memory across batch files
 - [x] Translate to English checkbox (all models + backends, MLX + faster-whisper)
+- [x] Inline translation warning shown only when large-v3 substitution applies
 - [x] Download progress preserves "Downloading, first time only..." line in GUI log
 - [x] Hard stop: GUI runs transcription batch in a killable worker subprocess
 - [x] GUI log colors/style modeled after CLI output
+- [x] GUI checkbox hit targets improved for reliable clicks
 - [x] Shared batch pipeline (`core/batch.py`) used by GUI worker subprocess and CLI
 
 ### Phase 5 — Packaging
@@ -243,6 +246,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Auto model download with progress in GUI
 - [x] CLI progress/activity styling aligned with GUI
 - [x] CLI cache management commands (`scriber cache path`, `scriber cache clear`)
+- [x] Suppress non-critical unlabeled speaker segment messages in normal logs
 - [ ] User-friendly error messages (no stack traces for end users)
 - [ ] Hallucination suppression (VAD filter already in faster-whisper)
 - [ ] Large file handling (chunking for memory)
