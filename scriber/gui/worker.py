@@ -120,25 +120,25 @@ class Worker(QThread):
                 out_stem = file_output / file.stem
                 do_export(segments, out_stem, formats=export)
                 elapsed = _fmt(perf_counter() - file_start)
-                self.log.emit(f"✓  Done in {elapsed}")
-                self.log.emit(f"   Saved to → {file_output}")
+                self.log.emit(f"✓ Done in {elapsed}")
+                self.log.emit(f"  Saved to → {file_output}")
 
             except Exception as e:
                 elapsed = _fmt(perf_counter() - file_start)
                 failed.append(file.name)
-                self.log.emit(f"✗  Failed: {file.name} ({elapsed})")
-                self.log.emit(f"   Error: {e}")
+                self.log.emit(f"✗ Failed: {file.name} ({elapsed})")
+                self.log.emit(f"  Error: {e}")
 
         total = _fmt(perf_counter() - batch_start)
         self.log.emit(f"\n{'─' * 40}")
         if self._stop:
-            self.log.emit(f"◼  Stopped after {total}.")
+            self.log.emit(f"◼ Stopped after {total}.")
         elif failed:
-            self.log.emit(f"⚠  {len(files) - len(failed)}/{len(files)} file(s) completed in {total}.")
-            self.log.emit(f"   Failed: {', '.join(failed)}")
+            self.log.emit(f"⚠ {len(files) - len(failed)}/{len(files)} file(s) completed in {total}.")
+            self.log.emit(f"  Failed: {', '.join(failed)}")
         else:
-            self.log.emit(f"✓  {len(files)} file(s) transcribed in {total}.")
-            self.log.emit(f"   Saved to → {output_folder}")
+            self.log.emit(f"✓ {len(files)} file(s) transcribed in {total}.")
+            self.log.emit(f"  Saved to → {output_folder}")
         self.done.emit()
 
 

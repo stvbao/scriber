@@ -479,10 +479,11 @@ class MainWindow(QMainWindow):
             "num_speakers":  num_speakers,
         }
 
+        import time
         self.log_box.append("")
         self._pulse_active = False
         self._pulse_idx    = 0
-        self._pulse_start  = 0.0
+        self._pulse_start  = time.perf_counter()  # start once, never reset
         self.worker = Worker(config)
         self.worker.log.connect(self._log)
         self.worker.log_replace.connect(self._log_replace)
@@ -511,9 +512,6 @@ class MainWindow(QMainWindow):
             return
 
         import time
-        if not self._pulse_active:
-            self._pulse_start = time.perf_counter()
-
         elapsed  = time.perf_counter() - self._pulse_start
         m, s     = divmod(int(elapsed), 60)
         elapsed_str = f"{m}m {s:02d}s" if m else f"{s}s"
