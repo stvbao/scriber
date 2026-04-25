@@ -96,6 +96,21 @@ else:
 | large-v3 | 1550M | 1x | Excellent |
 | **large-v3-turbo** | **809M** | **~8x** | **Excellent (recommended)** |
 
+### Pause Markers
+
+Optional feature (checkbox in GUI, `--pause-markers` / `--pause-threshold` in CLI). When enabled, inserts `[pause Xs]` between segments where the silence gap meets or exceeds the threshold (default: 2s).
+
+| Format | Pause markers |
+|---|---|
+| txt | Inline text |
+| md | Inline text |
+| html | Italic grey line, no timestamp |
+| srt | Not included (would break subtitle timing) |
+| vtt | Not included (would break subtitle timing) |
+| json | Not included (raw segment data only) |
+
+---
+
 Models download automatically on first use and cache locally:
 - Mac: `~/Library/Caches/scriber/models/`
 - Windows: `C:\Users\<user>\AppData\Local\scriber\Cache\models\`
@@ -181,9 +196,19 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Port existing Transcriber PyQt6 GUI to new core
 - [x] Replace whisply subprocess calls with direct core module calls
 - [x] Progress signals from core → GUI worker thread
-- [x] Settings panel: HF token moved to dedicated Settings tab
+- [x] Settings panel: HF token inline under Speaker annotation (no tabs)
 - [x] Export formats updated: txt, srt, vtt, json, md, html, all
-- [ ] Model download progress bar on first run
+- [x] Model download progress bar (custom tqdm → log_replace signal)
+- [x] Per-file elapsed timer (resets at start of each file, resets again at annotation)
+- [x] Pulse suspended during audio load and download to avoid overlap
+- [x] "Loading audio..." status message before load
+- [x] Pause markers option: checkbox (2s default), inserted in txt/md/html
+- [x] Soft stop: sets flag, finishes current file, prints ◼ Stopped
+- [x] app.setStyle("Fusion") for correct dark theme rendering
+- [x] Unified model cache: HF_HUB_CACHE set to ~/Library/Caches/scriber/models/ in __main__.py
+- [x] Pyannote runs on MPS (Apple Silicon) or CUDA (NVIDIA), falls back to CPU
+- [x] Pyannote receives pre-loaded audio tensor (avoids re-decoding source file)
+- [x] Pyannote pipeline cached in memory across batch files
 
 ### Phase 5 — Packaging
 - [ ] PyInstaller spec file for Mac → `.app` → unsigned DMG

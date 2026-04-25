@@ -4,6 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 from dataclasses import dataclass
 
+import numpy as np
+
+_pipeline_cache: dict = {}
+
 
 @dataclass
 class SpeakerSegment:
@@ -13,22 +17,33 @@ class SpeakerSegment:
 
 
 def diarize(
-    audio_path: Path,
+    audio: np.ndarray,
     hf_token: str,
     num_speakers: int | None = None,
     min_speakers: int | None = None,
     max_speakers: int | None = None,
 ) -> list[SpeakerSegment]:
+    import torch
     from pyannote.audio import Pipeline
-    from platformdirs import user_cache_dir
 
-    cache = Path(user_cache_dir("scriber")) / "models"
+    cache_key = hf_token
 
-    pipeline = Pipeline.from_pretrained(
-        "pyannote/speaker-diarization-community-1",
-        token=hf_token,
-        cache_dir=str(cache),
-    )
+    if cache_key not in _pipeline_cache:
+        pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-community-1",
+            token=hf_token,
+        )
+        if torch.backends.mps.is_available():
+            pipeline.to(torch.device("mps"))
+        elif torch.cuda.is_available():
+            pipeline.to(torch.device("cuda"))
+        _pipeline_cache[cache_key] = pipeline
+
+    pipeline = _pipeline_cache[cache_key]
+
+    # Pass pre-loaded audio directly — avoids pyannote re-decoding the source file
+    waveform = torch.from_numpy(audio).unsqueeze(0)  # [1, samples]
+    input_audio = {"waveform": waveform, "sample_rate": 16000}
 
     kwargs = {}
     if num_speakers:
@@ -39,7 +54,7 @@ def diarize(
         if max_speakers:
             kwargs["max_speakers"] = max_speakers
 
-    output = pipeline(str(audio_path), **kwargs)
+    output = pipeline(input_audio, **kwargs)
 
     return [
         SpeakerSegment(start=turn.start, end=turn.end, speaker=speaker)

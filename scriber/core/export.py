@@ -2,18 +2,44 @@
 
 from __future__ import annotations
 from pathlib import Path
+from dataclasses import dataclass
 import json
 
 
-def export(segments, output_stem: Path, formats: str = "txt"):
+@dataclass
+class _Pause:
+    text: str
+    speaker: None = None
+    start: float = 0.0
+    end: float = 0.0
+
+
+def export(segments, output_stem: Path, formats: str = "txt",
+           pause_markers: bool = False, pause_threshold: float = 2.0):
     fmts = ["txt", "srt", "vtt", "json", "md", "html"] if formats == "all" else [formats]
+    segs_with_pauses = _insert_pauses(segments, pause_threshold) if pause_markers else segments
     for fmt in fmts:
-        if fmt == "txt":   _export_txt(segments, output_stem.with_suffix(".txt"))
-        if fmt == "srt":   _export_srt(segments, output_stem.with_suffix(".srt"))
-        if fmt == "vtt":   _export_vtt(segments, output_stem.with_suffix(".vtt"))
-        if fmt == "json":  _export_json(segments, output_stem.with_suffix(".json"))
-        if fmt == "md":    _export_md(segments, output_stem.with_suffix(".md"))
-        if fmt == "html":  _export_html(segments, output_stem.with_suffix(".html"))
+        # Pause markers only in readable formats, not subtitle/data formats
+        s = segs_with_pauses if fmt in ("txt", "md", "html") else segments
+        if fmt == "txt":   _export_txt(s, output_stem.with_suffix(".txt"))
+        if fmt == "srt":   _export_srt(s, output_stem.with_suffix(".srt"))
+        if fmt == "vtt":   _export_vtt(s, output_stem.with_suffix(".vtt"))
+        if fmt == "json":  _export_json(s, output_stem.with_suffix(".json"))
+        if fmt == "md":    _export_md(s, output_stem.with_suffix(".md"))
+        if fmt == "html":  _export_html(s, output_stem.with_suffix(".html"))
+
+
+# ── Pause insertion ───────────────────────────────────────────────────────────
+
+def _insert_pauses(segments, min_gap: float):
+    result = []
+    for i, seg in enumerate(segments):
+        if i > 0:
+            gap = seg.start - segments[i - 1].end
+            if gap >= min_gap:
+                result.append(_Pause(text=f"[pause {gap:.0f}s]"))
+        result.append(seg)
+    return result
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -101,8 +127,11 @@ def _export_html(segments, path: Path):
             blocks.append(f'<div class="speaker">')
             blocks.append(f'<h2>{seg.speaker}</h2>')
             current_speaker = seg.speaker
-        ts = _ts_srt(seg.start)
-        blocks.append(f'<p><span class="ts">[{ts}]</span> {seg.text}</p>')
+        if isinstance(seg, _Pause):
+            blocks.append(f'<p class="pause">{seg.text}</p>')
+        else:
+            ts = _ts_srt(seg.start)
+            blocks.append(f'<p><span class="ts">[{ts}]</span> {seg.text}</p>')
     if blocks:
         blocks.append("</div>")
 
@@ -116,6 +145,7 @@ def _export_html(segments, path: Path):
   body {{ font-family: Georgia, serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #222; }}
   h2 {{ color: #444; margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: 4px; }}
   .ts {{ color: #999; font-size: 0.85em; font-family: monospace; }}
+  .pause {{ color: #aaa; font-size: 0.85em; font-style: italic; margin: 0.8em 0; }}
   p {{ margin: 0.4em 0; }}
 </style>
 </head>

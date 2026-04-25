@@ -6,8 +6,10 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 
 class Worker(QThread):
-    log         = pyqtSignal(str)   # append new line
-    log_replace = pyqtSignal(str)   # overwrite last line
+    log           = pyqtSignal(str)   # append new line
+    log_replace   = pyqtSignal(str)   # overwrite last line
+    reset_timer   = pyqtSignal()      # reset elapsed timer for new file
+    suspend_pulse = pyqtSignal()      # pause the pulse while busy (no log_replace)
 
     done = pyqtSignal()
 
@@ -33,8 +35,10 @@ class Worker(QThread):
         device        = cfg["device"]
         export        = cfg["export"]
         model         = cfg["model"]
-        hf_token      = cfg["hf_token"] or None
-        num_speakers  = cfg["num_speakers"]
+        hf_token        = cfg["hf_token"] or None
+        num_speakers    = cfg["num_speakers"]
+        pause_markers   = cfg["pause_markers"]
+        pause_threshold = cfg["pause_threshold"]
 
         if not files:
             self.log.emit("No files selected.")
@@ -50,11 +54,9 @@ class Worker(QThread):
         from scriber.core.merge import merge
         from scriber.core.export import export as do_export
         from scriber.core.download import download_model
-        from platformdirs import user_cache_dir
 
         backend       = _get_backend(device)
         backend_label = "MLX" if backend == "mlx" else "faster-whisper"
-        cache         = Path(user_cache_dir("scriber")) / "models"
 
         failed      = []
         batch_start = perf_counter()
@@ -62,8 +64,8 @@ class Worker(QThread):
         for i, file in enumerate(files, 1):
             if self._stop:
                 break
-
             self.log.emit(f"\n[{i}/{len(files)}] {file.name}")
+            self.reset_timer.emit()
             file_start = perf_counter()
 
             try:
@@ -71,18 +73,17 @@ class Worker(QThread):
                 file_output.mkdir(parents=True, exist_ok=True)
 
                 # Load audio
+                self.log.emit("  Loading audio...")
+                self.suspend_pulse.emit()
                 audio = load_audio(file)
                 self.log.emit(f"  Audio length: {_fmt(len(audio) / 16000)}")
 
                 # Download / load model
                 self.log.emit("")
-                if not _is_model_cached(model, backend, cache):
+                if not _is_model_cached(model, backend):
                     repo = _model_repo(model, backend)
                     self.log.emit(f"  Downloading {model} ({backend_label}) — first time only:")
-                    download_model(
-                        repo, cache, log=self._emit, hf_token=hf_token,
-                        use_hf_default=(backend == "mlx"),
-                    )
+                    download_model(repo, log=self._emit, hf_token=hf_token)
                     self.log.emit("  Download complete.")
                 else:
                     self.log.emit(f"  Model: {model} ({backend_label}) — loaded from cache")
@@ -99,14 +100,16 @@ class Worker(QThread):
                         self.log.emit("  Downloading speaker annotation model — first time only:")
                         download_model(
                             "pyannote/speaker-diarization-community-1",
-                            cache, log=self._emit, hf_token=hf_token,
+                            log=self._emit, hf_token=hf_token,
                         )
                         self.log.emit("  Download complete.")
                     else:
-                        self.log.emit("  Speaker annotation — loaded from cache")
+                        self.log.emit("  Speaker annotation model — loaded from cache")
 
+                    self.reset_timer.emit()
+                    self.log.emit("  Annotating speakers...")
                     speakers = diarize(
-                        file,
+                        audio,
                         hf_token=hf_token,
                         num_speakers=num_speakers if num_speakers > 0 else None,
                     )
@@ -118,10 +121,11 @@ class Worker(QThread):
                 # Export
                 self.log.emit("")
                 out_stem = file_output / file.stem
-                do_export(segments, out_stem, formats=export)
+                do_export(segments, out_stem, formats=export,
+                          pause_markers=pause_markers, pause_threshold=pause_threshold)
                 elapsed = _fmt(perf_counter() - file_start)
                 self.log.emit(f"✓ Done in {elapsed}")
-                self.log.emit(f"  Saved to → {file_output}")
+                self.log.emit(f"  Saved to:{file_output}")
 
             except Exception as e:
                 elapsed = _fmt(perf_counter() - file_start)
@@ -138,7 +142,7 @@ class Worker(QThread):
             self.log.emit(f"  Failed: {', '.join(failed)}")
         else:
             self.log.emit(f"✓ {len(files)} file(s) transcribed in {total}.")
-            self.log.emit(f"  Saved to → {output_folder}")
+            self.log.emit(f"  Saved to:{output_folder}")
         self.done.emit()
 
 
@@ -150,17 +154,20 @@ def _model_repo(model: str, backend: str) -> str:
     return f"Systran/faster-whisper-{model}"
 
 
-def _is_model_cached(model: str, backend: str, cache: Path) -> bool:
+def _scriber_cache() -> Path:
+    from platformdirs import user_cache_dir
+    return Path(user_cache_dir("scriber")) / "models"
+
+
+def _is_model_cached(model: str, backend: str) -> bool:
+    cache = _scriber_cache()
     if backend == "mlx":
-        hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
-        return (hf_cache / f"models--mlx-community--whisper-{model}").exists()
-    # faster-whisper uses HF hub format: models--Systran--faster-whisper-{model}
+        return (cache / f"models--mlx-community--whisper-{model}").exists()
     return (cache / f"models--Systran--faster-whisper-{model}").exists()
 
 
 def _is_pyannote_cached() -> bool:
-    hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
-    return (hf_cache / "models--pyannote--speaker-diarization-community-1").exists()
+    return (_scriber_cache() / "models--pyannote--speaker-diarization-community-1").exists()
 
 
 def _fmt(seconds: float) -> str:

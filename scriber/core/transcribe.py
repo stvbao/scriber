@@ -75,11 +75,6 @@ def _transcribe_faster_whisper(
     device: str,
 ) -> list[Segment]:
     from faster_whisper import WhisperModel
-    from platformdirs import user_cache_dir
-    from pathlib import Path
-
-    cache = Path(user_cache_dir("scriber")) / "models"
-    cache.mkdir(parents=True, exist_ok=True)
 
     compute_type = "float16" if device == "gpu" else "int8"
     fw_device = "cuda" if device == "gpu" else "cpu"
@@ -88,7 +83,6 @@ def _transcribe_faster_whisper(
         model,
         device=fw_device,
         compute_type=compute_type,
-        download_root=str(cache),
     )
 
     segments, _ = fw_model.transcribe(

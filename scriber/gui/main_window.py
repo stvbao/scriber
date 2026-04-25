@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QLineEdit, QPushButton, QComboBox, QCheckBox,
     QScrollArea, QTextEdit, QFileDialog, QFrame, QSizePolicy,
-    QListWidget, QTabWidget,
+    QListWidget,
 )
 
 from scriber.gui.worker import Worker
@@ -67,7 +67,11 @@ WELCOME = (
 
 def stylesheet():
     return f"""
-    * {{ font-family: Helvetica Neue, Helvetica, Arial; font-size: 13px; color: {TEXT}; }}
+    * {{
+        font-family: Helvetica Neue, Helvetica, Arial;
+        font-size: 13px;
+        color: {TEXT};
+    }}
     QMainWindow, QWidget {{ background: {BG}; }}
 
     QScrollArea {{
@@ -81,46 +85,62 @@ def stylesheet():
     QLabel#dim {{ color: {DIM}; font-size: 11px; }}
 
     QComboBox {{
-        background: {BLUE}; color: white; border: none;
-        border-radius: 5px; padding: 5px 28px 5px 10px;
-        min-width: 120px; font-weight: 500;
+        background: {BLUE};
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 5px 28px 5px 10px;
+        min-width: 120px;
+        font-weight: 500;
     }}
     QComboBox:hover {{ background: {BLUE_HV}; }}
-    QComboBox::drop-down {{ border: none; width: 24px; }}
-    QComboBox::down-arrow {{
-        width: 0; height: 0;
-        border-left: 4px solid transparent;
-        border-right: 4px solid transparent;
-        border-top: 5px solid white;
-        margin-right: 8px;
-    }}
+    QComboBox:focus {{ outline: 2px solid #6baed6; outline-offset: 1px; border: 2px solid #6baed6; }}
+    QComboBox::drop-down {{ border: none; width: 20px; background: transparent; }}
     QComboBox QAbstractItemView {{
-        background: #2e2e2e; color: {TEXT};
+        background: #2e2e2e;
+        color: {TEXT};
         border: 1px solid {BORDER};
         selection-background-color: {BLUE};
-        outline: none; padding: 2px;
+        outline: none;
+        padding: 2px;
     }}
 
-    QLineEdit {{
-        background: {BG}; color: {TEXT};
-        border: 1px solid {BORDER}; border-radius: 5px;
-        padding: 5px 8px; min-width: 120px;
+    QLineEdit, QSpinBox {{
+        background: {BG};
+        color: {TEXT};
+        border: 1px solid {BORDER};
+        border-radius: 5px;
+        padding: 5px 8px;
+        min-width: 120px;
     }}
-    QLineEdit:focus {{ border-color: {BLUE}; }}
+    QLineEdit:focus, QSpinBox:focus {{ border-color: {BLUE}; }}
+    QSpinBox::up-button, QSpinBox::down-button {{
+        background: {BORDER}; border: none; width: 16px;
+    }}
 
     QCheckBox {{ background: transparent; }}
 
     QPushButton#browse {{
-        background: {GREEN}; color: white; border: none;
-        border-radius: 5px; padding: 5px 10px;
-        font-size: 13px; font-weight: 500; min-width: 68px;
+        background: {GREEN};
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 5px 10px;
+        font-size: 13px;
+        font-weight: 500;
+        min-width: 68px;
     }}
     QPushButton#browse:hover {{ background: {GREEN_HV}; }}
 
     QPushButton#start {{
-        background: {GREEN}; color: white; border: none;
-        border-radius: 7px; font-size: 15px; font-weight: 700;
-        padding: 11px; letter-spacing: 0.5px;
+        background: {GREEN};
+        color: white;
+        border: none;
+        border-radius: 7px;
+        font-size: 15px;
+        font-weight: 700;
+        padding: 11px;
+        letter-spacing: 0.5px;
     }}
     QPushButton#start:hover {{ background: {GREEN_HV}; }}
     QPushButton#start[stop="true"] {{ background: {RED}; }}
@@ -129,11 +149,15 @@ def stylesheet():
     QFrame#sep {{ background: {BORDER}; }}
 
     QTextEdit {{
-        background: {BG}; color: {TEXT}; border: none;
-        font-family: {MONO}; font-size: 12px; padding: 16px;
+        background: {BG};
+        color: {TEXT};
+        border: none;
+        font-family: {MONO};
+        font-size: 12px;
+        padding: 16px;
     }}
 
-    QTabWidget::pane {{ border: none; background: {BG}; }}
+    QTabWidget::pane {{ border: 0px; background: {PANEL}; }}
     QTabBar::tab {{
         background: {PANEL}; color: {DIM};
         padding: 6px 16px; border: none;
@@ -156,6 +180,7 @@ class CheckBox(QCheckBox):
         super().__init__(parent)
         self.setFixedSize(20, 20)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def paintEvent(self, _):
         p = QPainter(self)
@@ -182,8 +207,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Scriber")
-        self.setMinimumSize(1200, 700)
-        self.resize(1200, 700)
+        self.setMinimumSize(1000, 700)
+        self.resize(1000, 700)
         self.worker          = None
         self._selected_files = []
         self._output_folder  = Path.home() / "Downloads"
@@ -226,28 +251,11 @@ class MainWindow(QMainWindow):
         v.addWidget(title)
         v.addWidget(sub)
 
-        tabs = QTabWidget()
-        tabs.addTab(self._tab_transcribe(), "Transcribe")
-        tabs.addTab(self._tab_settings(), "Settings")
-        v.addWidget(tabs)
-        v.addStretch()
-
-        v.addSpacing(16)
-        self.start_btn = QPushButton("Start")
-        self.start_btn.setObjectName("start")
-        self.start_btn.setMinimumHeight(46)
-        self.start_btn.clicked.connect(self._toggle)
-        v.addWidget(self.start_btn)
-
-        scroll.setWidget(w)
-        return scroll
-
-    def _tab_transcribe(self):
-        w = QWidget()
-        grid = QGridLayout(w)
+        grid = QGridLayout()
         grid.setVerticalSpacing(10)
         grid.setHorizontalSpacing(12)
         grid.setColumnStretch(1, 1)
+        grid.setColumnMinimumWidth(0, 100)
         row = 0
 
         def lbl(text):
@@ -340,8 +348,14 @@ class MainWindow(QMainWindow):
         self.export_combo = QComboBox()
         self.export_combo.addItems(EXPORT_FORMATS)
         self.export_combo.wheelEvent = lambda e: e.ignore()
-        grid.addWidget(lbl("Export:"), row, 0)
+        grid.addWidget(lbl("Export Format:"), row, 0)
         grid.addWidget(self.export_combo, row, 1)
+        row += 1
+
+        # Pause markers
+        self.pause_check = CheckBox()
+        grid.addWidget(lbl("Mark Pauses:"), row, 0)
+        grid.addWidget(self.pause_check, row, 1, Qt.AlignmentFlag.AlignLeft)
         row += 1
 
         sep()
@@ -352,41 +366,6 @@ class MainWindow(QMainWindow):
         grid.addWidget(sa_lbl, row, 0, 1, 2)
         row += 1
 
-        self.num_speakers_edit = QLineEdit()
-        self.num_speakers_edit.setPlaceholderText("0  (auto-detect)")
-        grid.addWidget(lbl("Speakers:"), row, 0)
-        grid.addWidget(self.num_speakers_edit, row, 1)
-        row += 1
-
-        grid.setRowStretch(row, 1)
-        return w
-
-    def _tab_settings(self):
-        w = QWidget()
-        grid = QGridLayout(w)
-        grid.setVerticalSpacing(10)
-        grid.setHorizontalSpacing(12)
-        grid.setColumnStretch(1, 1)
-        row = 0
-
-        def lbl(text):
-            l = QLabel(text)
-            l.setStyleSheet(f"color: {DIM}; font-size: 12px;")
-            l.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            return l
-
-        # HF Token
-        hf_title = QLabel("HuggingFace token")
-        hf_title.setStyleSheet("font-size: 11px; font-weight: 600; color: #aaa; margin-top: 2px;")
-        grid.addWidget(hf_title, row, 0, 1, 2)
-        row += 1
-
-        hf_note = QLabel("Required for speaker annotation only.\nGet a free token at huggingface.co/settings/tokens")
-        hf_note.setStyleSheet(f"color: {DIM}; font-size: 11px;")
-        hf_note.setWordWrap(True)
-        grid.addWidget(hf_note, row, 0, 1, 2)
-        row += 1
-
         self.hf_token_edit = QLineEdit()
         self.hf_token_edit.setPlaceholderText("hf_...")
         self.hf_token_edit.setEchoMode(QLineEdit.EchoMode.Password)
@@ -394,8 +373,24 @@ class MainWindow(QMainWindow):
         grid.addWidget(self.hf_token_edit, row, 1)
         row += 1
 
-        grid.setRowStretch(row, 1)
-        return w
+        self.num_speakers_edit = QLineEdit()
+        self.num_speakers_edit.setPlaceholderText("0  (auto-detect)")
+        grid.addWidget(lbl("Speakers:"), row, 0)
+        grid.addWidget(self.num_speakers_edit, row, 1)
+        row += 1
+
+        v.addLayout(grid)
+        v.addStretch()
+
+        v.addSpacing(16)
+        self.start_btn = QPushButton("Start")
+        self.start_btn.setObjectName("start")
+        self.start_btn.setMinimumHeight(46)
+        self.start_btn.clicked.connect(self._toggle)
+        v.addWidget(self.start_btn)
+
+        scroll.setWidget(w)
+        return scroll
 
     # ── Right panel ───────────────────────────────────────────────────────────
 
@@ -455,6 +450,7 @@ class MainWindow(QMainWindow):
         if self.worker and self.worker.isRunning():
             self.worker.stop()
             self._set_btn_start()
+            self._log("Stopping after current file completes...")
         else:
             self._start()
 
@@ -469,14 +465,16 @@ class MainWindow(QMainWindow):
             num_speakers = 0
 
         config = {
-            "files":         self._selected_files,
-            "output_folder": self._output_folder,
-            "language":      LANGUAGES[self.language_combo.currentText()],
-            "device":        self.device_combo.currentText(),
-            "export":        self.export_combo.currentText(),
-            "model":         self.model_combo.currentText(),
-            "hf_token":      self.hf_token_edit.text().strip() or None,
-            "num_speakers":  num_speakers,
+            "files":           self._selected_files,
+            "output_folder":   self._output_folder,
+            "language":        LANGUAGES[self.language_combo.currentText()],
+            "device":          self.device_combo.currentText(),
+            "export":          self.export_combo.currentText(),
+            "model":           self.model_combo.currentText(),
+            "hf_token":        self.hf_token_edit.text().strip() or None,
+            "num_speakers":    num_speakers,
+            "pause_markers":   self.pause_check.isChecked(),
+            "pause_threshold": 2.0,
         }
 
         import time
@@ -487,6 +485,8 @@ class MainWindow(QMainWindow):
         self.worker = Worker(config)
         self.worker.log.connect(self._log)
         self.worker.log_replace.connect(self._log_replace)
+        self.worker.reset_timer.connect(self._reset_pulse_timer)
+        self.worker.suspend_pulse.connect(self._suspend_pulse)
         self.worker.done.connect(self._on_done)
         self.worker.start()
 
@@ -495,6 +495,15 @@ class MainWindow(QMainWindow):
         self.start_btn.style().unpolish(self.start_btn)
         self.start_btn.style().polish(self.start_btn)
         self._pulse_timer.start()
+
+    def _suspend_pulse(self):
+        self._pulse_timer.stop()
+        self._pulse_active = False
+
+    def _reset_pulse_timer(self):
+        import time
+        self._pulse_start  = time.perf_counter()
+        self._pulse_active = False
 
     def _on_done(self):
         self._pulse_timer.stop()
