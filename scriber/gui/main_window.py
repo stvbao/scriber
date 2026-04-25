@@ -524,7 +524,7 @@ class MainWindow(QMainWindow):
         self._pulse_idx += 1
 
         ts   = datetime.now().strftime("%H:%M:%S")
-        line = f"[{ts}]  {bar}  {elapsed_str} elapsed"
+        line = f"[{ts}]   {bar}  {elapsed_str} elapsed"
 
         cursor = self.log_box.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)

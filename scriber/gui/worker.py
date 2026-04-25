@@ -63,37 +63,37 @@ class Worker(QThread):
             if self._stop:
                 break
 
-            self.log.emit(f"\nProcessing {i}/{len(files)}: {file.name}")
+            self.log.emit(f"\n── {i}/{len(files)}: {file.name}")
             file_start = perf_counter()
 
             try:
                 output_folder.mkdir(parents=True, exist_ok=True)
 
                 # Load audio
-                self.log.emit("  Loading audio...")
                 audio = load_audio(file)
-                self.log.emit(f"  Audio: {_fmt(len(audio) / 16000)} loaded")
+                self.log.emit(f"  Audio loaded: {_fmt(len(audio) / 16000)}")
 
-                # Download model if needed
+                # Download / load model
+                self.log.emit("")
                 if not _is_model_cached(model, backend, cache):
                     repo = _model_repo(model, backend)
-                    self.log.emit(f"  Downloading {model} ({backend_label}) — first time only, will be cached:")
-                    # MLX uses default HF cache; faster-whisper uses our custom cache_dir
+                    self.log.emit(f"  Downloading {model} ({backend_label}) — first time only:")
                     download_model(
                         repo, cache, log=self._emit, hf_token=hf_token,
                         use_hf_default=(backend == "mlx"),
                     )
                     self.log.emit("  Download complete.")
                 else:
-                    self.log.emit(f"  Loading {model} ({backend_label}) from cache...")
+                    self.log.emit(f"  Model: {model} ({backend_label}) — loaded from cache")
 
                 # Transcribe
                 self.log.emit(f"  Transcribing...")
                 segments = transcribe(audio, model=model, language=language, device=device)
-                self.log.emit(f"  Transcribed: {len(segments)} segments")
+                self.log.emit(f"  Done: {len(segments)} segments")
 
                 # Diarize
                 if hf_token:
+                    self.log.emit("")
                     if not _is_pyannote_cached():
                         self.log.emit("  Downloading speaker annotation model — first time only:")
                         download_model(
@@ -102,7 +102,7 @@ class Worker(QThread):
                         )
                         self.log.emit("  Download complete.")
                     else:
-                        self.log.emit("  Loading speaker annotation model from cache...")
+                        self.log.emit("  Speaker annotation — loaded from cache")
 
                     speakers = diarize(
                         file,
@@ -115,13 +115,12 @@ class Worker(QThread):
                     segments = [s for s in segments if s.speaker is not None]
 
                 # Export
-                self.log.emit(f"  Saving to {output_folder}...")
+                self.log.emit("")
                 out_stem = output_folder / file.stem
                 do_export(segments, out_stem, formats=export)
-
                 elapsed = _fmt(perf_counter() - file_start)
-                self.log.emit(f"✓  Done: {file.name} ({elapsed})")
-                self.log.emit(f"   Output: {output_folder}")
+                self.log.emit(f"✓  Done in {elapsed}")
+                self.log.emit(f"   → {output_folder}")
 
             except Exception as e:
                 elapsed = _fmt(perf_counter() - file_start)
@@ -134,10 +133,10 @@ class Worker(QThread):
         if self._stop:
             self.log.emit(f"◼  Stopped after {total}.")
         elif failed:
-            self.log.emit(f"⚠  Finished with errors — {len(files) - len(failed)}/{len(files)} in {total}.")
+            self.log.emit(f"⚠  {len(files) - len(failed)}/{len(files)} file(s) completed in {total}.")
             self.log.emit(f"   Failed: {', '.join(failed)}")
         else:
-            self.log.emit(f"✓  All done — {len(files)} file(s) in {total}.")
+            self.log.emit(f"✓  {len(files)} file(s) transcribed in {total}.")
             self.log.emit(f"   Saved to: {output_folder}")
         self.done.emit()
 
