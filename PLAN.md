@@ -178,10 +178,11 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [ ] Test with multi-speaker interview files
 
 ### Phase 4 — GUI
-- [ ] Port existing Transcriber PyQt6 GUI to new core
-- [ ] Replace whisply subprocess calls with direct core module calls
-- [ ] Progress signals from core → GUI worker thread
-- [ ] Settings panel: HF token, default model, default export format
+- [x] Port existing Transcriber PyQt6 GUI to new core
+- [x] Replace whisply subprocess calls with direct core module calls
+- [x] Progress signals from core → GUI worker thread
+- [x] Settings panel: HF token moved to dedicated Settings tab
+- [x] Export formats updated: txt, srt, vtt, json, md, html, all
 - [ ] Model download progress bar on first run
 
 ### Phase 5 — Packaging
