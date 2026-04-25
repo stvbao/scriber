@@ -171,9 +171,10 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Fallback to faster-whisper if MLX unavailable
 
 ### Phase 3 — Speaker Annotation
-- [ ] `diarize.py` — pyannote v4 pipeline
-- [ ] `merge.py` — overlap-based speaker assignment
-- [ ] Add `--annotate` + `--hf-token` to CLI
+- [x] `diarize.py` — pyannote v4 pipeline (speaker-diarization-community-1)
+- [x] `merge.py` — overlap-based speaker assignment
+- [x] Add `--annotate` + `--hf-token` to CLI
+- [x] Full pipeline tested (transcribe + diarize + merge + export all formats)
 - [ ] Test with multi-speaker interview files
 
 ### Phase 4 — GUI
