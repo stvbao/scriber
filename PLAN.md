@@ -165,10 +165,10 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [ ] Test on Windows
 
 ### Phase 2 — MLX
-- [ ] Add MLX-Whisper path in `transcribe.py`
-- [ ] Auto-detect Apple Silicon + macOS version
-- [ ] Benchmark vs faster-whisper on same file
-- [ ] Fallback to faster-whisper if MLX unavailable
+- [x] Add MLX-Whisper path in `transcribe.py`
+- [x] Auto-detect Apple Silicon + macOS version
+- [x] Benchmark vs faster-whisper on same file (MLX 1.5x faster on 30s, larger gap on longer audio)
+- [x] Fallback to faster-whisper if MLX unavailable
 
 ### Phase 3 — Speaker Annotation
 - [ ] `diarize.py` — pyannote v4 pipeline

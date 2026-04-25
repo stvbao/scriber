@@ -64,6 +64,7 @@ def _transcribe_mlx(audio: np.ndarray, model: str, language: str | None) -> list
     return [
         Segment(start=s["start"], end=s["end"], text=s["text"].strip())
         for s in result["segments"]
+        if s["text"].strip() and s["end"] > s["start"]
     ]
 
 
