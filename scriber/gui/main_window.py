@@ -540,6 +540,7 @@ class MainWindow(QMainWindow):
 
     def _log(self, msg: str):
         self._pulse_active = False
+        self._pulse_timer.start()  # resume pulse after download finishes
         ts   = datetime.now().strftime("%H:%M:%S")
         text = f"\n[{ts}] {msg.lstrip()}" if msg.startswith("\n") else f"[{ts}] {msg}"
         self.log_box.append(text)
@@ -547,6 +548,8 @@ class MainWindow(QMainWindow):
 
     def _log_replace(self, msg: str):
         """Overwrite the last line — used for download progress updates."""
+        self._pulse_timer.stop()   # pause pulse while download is active
+        self._pulse_active = False
         ts     = datetime.now().strftime("%H:%M:%S")
         text   = f"[{ts}] {msg}"
         cursor = self.log_box.textCursor()
