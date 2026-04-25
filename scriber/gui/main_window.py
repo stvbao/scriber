@@ -193,9 +193,9 @@ class MainWindow(QMainWindow):
         self._pulse_timer  = QTimer(self)
         self._pulse_timer.setInterval(500)
         self._pulse_timer.timeout.connect(self._pulse)
-        self._pulse_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         self._pulse_idx    = 0
         self._pulse_active = False
+        self._pulse_start  = 0.0
 
     def _build_ui(self):
         root = QWidget()
@@ -482,6 +482,7 @@ class MainWindow(QMainWindow):
         self.log_box.append("")
         self._pulse_active = False
         self._pulse_idx    = 0
+        self._pulse_start  = 0.0
         self.worker = Worker(config)
         self.worker.log.connect(self._log)
         self.worker.done.connect(self._on_done)
@@ -507,17 +508,31 @@ class MainWindow(QMainWindow):
     def _pulse(self):
         if not (self.worker and self.worker.isRunning()):
             return
-        frame = self._pulse_frames[self._pulse_idx % len(self._pulse_frames)]
+
+        import time
+        if not self._pulse_active:
+            self._pulse_start = time.perf_counter()
+
+        elapsed  = time.perf_counter() - self._pulse_start
+        m, s     = divmod(int(elapsed), 60)
+        elapsed_str = f"{m}m {s:02d}s" if m else f"{s}s"
+
+        # Sweeping block bar (10 chars wide, indeterminate)
+        pos    = self._pulse_idx % 10
+        bar    = "░" * 10
+        bar    = bar[:pos] + "█" + bar[pos + 1:]
         self._pulse_idx += 1
-        ts = datetime.now().strftime("%H:%M:%S")
-        spinner = f"[{ts}]  {frame} working..."
+
+        ts   = datetime.now().strftime("%H:%M:%S")
+        line = f"[{ts}]  [{bar}]  {elapsed_str} elapsed"
+
         cursor = self.log_box.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
         if self._pulse_active:
             cursor.select(cursor.SelectionType.LineUnderCursor)
-            cursor.insertText(spinner)
+            cursor.insertText(line)
         else:
-            self.log_box.append(spinner)
+            self.log_box.append(line)
             self._pulse_active = True
         self.log_box.setTextCursor(cursor)
         self.log_box.ensureCursorVisible()
