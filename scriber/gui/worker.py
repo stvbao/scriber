@@ -59,7 +59,8 @@ class Worker(QThread):
                 self.log.emit("  Loading audio...")
                 audio = load_audio(file)
 
-                self.log.emit(f"  Transcribing ({device})...")
+                self.log.emit(f"  Loading model + transcribing ({device}) — first run downloads model...")
+
                 segments = transcribe(audio, model=model, language=language, device=device)
                 self.log.emit(f"  {len(segments)} segments transcribed")
 

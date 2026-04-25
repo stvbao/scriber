@@ -190,9 +190,12 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self.log_box.setHtml(WELCOME)
 
-        self._pulse_timer = QTimer(self)
-        self._pulse_timer.setInterval(1000)
+        self._pulse_timer  = QTimer(self)
+        self._pulse_timer.setInterval(500)
         self._pulse_timer.timeout.connect(self._pulse)
+        self._pulse_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self._pulse_idx    = 0
+        self._pulse_active = False
 
     def _build_ui(self):
         root = QWidget()
@@ -477,6 +480,8 @@ class MainWindow(QMainWindow):
         }
 
         self.log_box.append("")
+        self._pulse_active = False
+        self._pulse_idx    = 0
         self.worker = Worker(config)
         self.worker.log.connect(self._log)
         self.worker.done.connect(self._on_done)
@@ -500,10 +505,25 @@ class MainWindow(QMainWindow):
         self.start_btn.style().polish(self.start_btn)
 
     def _pulse(self):
-        if self.worker and self.worker.isRunning():
-            self._log("  ·")
+        if not (self.worker and self.worker.isRunning()):
+            return
+        frame = self._pulse_frames[self._pulse_idx % len(self._pulse_frames)]
+        self._pulse_idx += 1
+        ts = datetime.now().strftime("%H:%M:%S")
+        spinner = f"[{ts}]  {frame} working..."
+        cursor = self.log_box.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        if self._pulse_active:
+            cursor.select(cursor.SelectionType.LineUnderCursor)
+            cursor.insertText(spinner)
+        else:
+            self.log_box.append(spinner)
+            self._pulse_active = True
+        self.log_box.setTextCursor(cursor)
+        self.log_box.ensureCursorVisible()
 
     def _log(self, msg: str):
+        self._pulse_active = False
         ts   = datetime.now().strftime("%H:%M:%S")
         text = f"\n[{ts}] {msg.lstrip()}" if msg.startswith("\n") else f"[{ts}] {msg}"
         self.log_box.append(text)
