@@ -63,15 +63,16 @@ class Worker(QThread):
             if self._stop:
                 break
 
-            self.log.emit(f"\n── {i}/{len(files)}: {file.name}")
+            self.log.emit(f"\n[{i}/{len(files)}] {file.name}")
             file_start = perf_counter()
 
             try:
-                output_folder.mkdir(parents=True, exist_ok=True)
+                file_output = output_folder / file.stem
+                file_output.mkdir(parents=True, exist_ok=True)
 
                 # Load audio
                 audio = load_audio(file)
-                self.log.emit(f"  Audio loaded: {_fmt(len(audio) / 16000)}")
+                self.log.emit(f"  Audio length: {_fmt(len(audio) / 16000)}")
 
                 # Download / load model
                 self.log.emit("")
@@ -87,9 +88,9 @@ class Worker(QThread):
                     self.log.emit(f"  Model: {model} ({backend_label}) — loaded from cache")
 
                 # Transcribe
-                self.log.emit(f"  Transcribing...")
+                self.log.emit("  Transcribing...")
                 segments = transcribe(audio, model=model, language=language, device=device)
-                self.log.emit(f"  Done: {len(segments)} segments")
+                self.log.emit("  Transcription complete.")
 
                 # Diarize
                 if hf_token:
@@ -116,11 +117,11 @@ class Worker(QThread):
 
                 # Export
                 self.log.emit("")
-                out_stem = output_folder / file.stem
+                out_stem = file_output / file.stem
                 do_export(segments, out_stem, formats=export)
                 elapsed = _fmt(perf_counter() - file_start)
                 self.log.emit(f"✓  Done in {elapsed}")
-                self.log.emit(f"   → {output_folder}")
+                self.log.emit(f"   Saved to → {file_output}")
 
             except Exception as e:
                 elapsed = _fmt(perf_counter() - file_start)
@@ -137,7 +138,7 @@ class Worker(QThread):
             self.log.emit(f"   Failed: {', '.join(failed)}")
         else:
             self.log.emit(f"✓  {len(files)} file(s) transcribed in {total}.")
-            self.log.emit(f"   Saved to: {output_folder}")
+            self.log.emit(f"   Saved to → {output_folder}")
         self.done.emit()
 
 
