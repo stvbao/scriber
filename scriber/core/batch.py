@@ -127,7 +127,7 @@ def run_batch(config: BatchConfig | dict[str, Any], emit: Emit) -> BatchResult:
                 eff_model = TRANSLATION_MODEL
                 task = "translate"
                 if eff_model != config.model:
-                    emit("log", "  ⚠ Using large-v3 for translation (turbo doesn't support it)")
+                    emit("log", "  ⚠ Using large-v3 model (turbo doesn't support translation)")
             else:
                 eff_model = config.model
                 task = "transcribe"
@@ -158,7 +158,7 @@ def run_batch(config: BatchConfig | dict[str, Any], emit: Emit) -> BatchResult:
 
             _disable_hf_progress_bars()
 
-            action = "Translating to English" if task == "translate" else "Transcribing"
+            action = "Transcribing and translating" if task == "translate" else "Transcribing"
             emit("log", "")
             emit("log", f"  {action}...")
             step_start = perf_counter()

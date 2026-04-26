@@ -4,7 +4,7 @@ from datetime import datetime
 from html import escape
 
 from PyQt6.QtCore import Qt, QTimer, QRect
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
+from PyQt6.QtGui import QKeySequence, QPainter, QPen, QBrush, QColor, QShortcut
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QLineEdit, QPushButton, QComboBox, QCheckBox,
@@ -17,7 +17,7 @@ from scriber.gui.worker import Worker
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 AUDIO_EXTENSIONS = {".mp3", ".mp4", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".wma"}
-ACTIVITY_START_MESSAGES = {"Transcribing...", "Translating to English...", "Annotating speakers..."}
+ACTIVITY_START_MESSAGES = {"Transcribing...", "Transcribing and translating...", "Annotating speakers..."}
 
 LANGUAGES = {
     "Auto-detect": "",
@@ -223,6 +223,8 @@ class MainWindow(QMainWindow):
         self._selected_files = []
         self._output_folder  = Path.home() / "Downloads"
         self._build_ui()
+        self._close_shortcut = QShortcut(QKeySequence("Ctrl+W"), self)
+        self._close_shortcut.activated.connect(self.close)
         self.log_box.setHtml(WELCOME)
 
         self._pulse_timer  = QTimer(self)

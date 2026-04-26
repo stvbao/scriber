@@ -50,6 +50,7 @@ scriber/
 │   │   └── export.py        ← txt / srt / vtt / json export
 │   └── gui/
 │       ├── main_window.py   ← PyQt6 main window
+│       ├── icon.py          ← generated Qt app/window icon
 │       ├── worker.py        ← killable GUI worker subprocess wrapper
 │       └── widgets.py       ← custom UI components
 ├── tests/
@@ -225,11 +226,13 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Pyannote receives pre-loaded audio tensor (avoids re-decoding source file)
 - [x] Pyannote pipeline cached in memory across batch files
 - [x] Translate to English checkbox (all models + backends, MLX + faster-whisper)
-- [x] Inline translation warning shown only when large-v3 substitution applies
+- [x] Inline translation warning shown only when large-v3 substitution applies; translation step logs as "Transcribing and translating"
 - [x] Download progress preserves "Downloading, first time only..." line in GUI log
 - [x] Hard stop: GUI runs transcription batch in a killable worker subprocess
 - [x] GUI log colors/style modeled after CLI output
 - [x] GUI checkbox hit targets improved for reliable clicks
+- [x] Cmd+W closes the GUI window on macOS
+- [x] Generated Scriber icon set on Qt application/window for unbundled GUI runs
 - [x] Shared batch pipeline (`core/batch.py`) used by GUI worker subprocess and CLI
 
 ### Phase 5 — Packaging
@@ -238,6 +241,8 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] GitHub Actions workflow: build both on git tag push (`.github/workflows/release.yml`)
 - [x] Homebrew formula (`Formula/scriber.rb`)
 - [x] PowerShell install script for Windows (`scripts/install.ps1`)
+- [ ] Add real `.icns` / `.ico` assets to packaged builds
+- [ ] Validate macOS Dock name/icon through `dist/Scriber.app` (terminal-launched Python still appears as Python in Dock)
 - [ ] Resolve pyannote/torchcodec native FFmpeg packaging without requiring user-installed FFmpeg
 - [ ] Consider isolating speaker annotation in its own phase subprocess to avoid PyAV/torchcodec FFmpeg collisions
 - [ ] Test on clean machines (no Python, no dev tools)

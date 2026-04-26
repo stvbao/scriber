@@ -261,7 +261,7 @@ class _BatchConsoleRenderer:
 def _is_activity_start_log(message: str) -> bool:
     return message.strip() in {
         "Transcribing...",
-        "Translating to English...",
+        "Transcribing and translating...",
         "Annotating speakers...",
     }
 
