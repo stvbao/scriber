@@ -237,12 +237,14 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 
 ### Phase 5 — Packaging
 - [x] PyInstaller spec file for Mac → `.app` → unsigned DMG (`scriber-mac.spec`)
+- [x] PyInstaller spec file for Mac CLI → Homebrew tarball (`scriber-cli-mac.spec`)
 - [x] PyInstaller spec file for Windows → `.exe` → zip (`scriber-win.spec`)
-- [x] GitHub Actions workflow: build both on git tag push (`.github/workflows/release.yml`)
-- [x] Homebrew formula (`Formula/scriber.rb`)
+- [x] GitHub Actions workflow: build Mac app, Mac CLI tarball, and Windows zip on git tag push (`.github/workflows/release.yml`)
+- [x] Homebrew formula installs Apple Silicon CLI bundle under `libexec` with `bin/scriber` symlink
 - [x] PowerShell install script for Windows (`scripts/install.ps1`)
 - [ ] Add real `.icns` / `.ico` assets to packaged builds
 - [ ] Validate macOS Dock name/icon through `dist/Scriber.app` (terminal-launched Python still appears as Python in Dock)
+- [ ] Trim PyInstaller specs to reduce bundled optional dependency trees and artifact size
 - [ ] Resolve pyannote/torchcodec native FFmpeg packaging without requiring user-installed FFmpeg
 - [ ] Consider isolating speaker annotation in its own phase subprocess to avoid PyAV/torchcodec FFmpeg collisions
 - [ ] Test on clean machines (no Python, no dev tools)

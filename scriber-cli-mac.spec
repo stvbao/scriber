@@ -1,21 +1,42 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec for Windows (x86_64)
-# Produces: dist/Scriber/  →  Scriber-<ver>-windows.zip (via CI)
+# PyInstaller spec for the macOS CLI bundle (Apple Silicon, arm64).
+# Produces: dist/scriber-cli/  ->  scriber-<ver>-macos-arm64.tar.gz (via CI)
 
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_all
 
 datas = []
 binaries = []
 hiddenimports = []
 
-# Full collection for every package that has native extensions or lazy imports
-# mlx / mlx_whisper intentionally omitted (Apple Silicon only)
+# Avoid dragging package test suites, examples, and training/debug tools into the
+# Homebrew CLI artifact. Runtime package hooks still collect native libraries.
+def keep_runtime_submodule(name):
+    excluded_parts = (
+        '.tests',
+        '.testing',
+        '._testing',
+        '.test_',
+        '.examples',
+        '.benchmark',
+        '.debug',
+        '.conftest',
+    )
+    excluded_prefixes = (
+        'torch.testing',
+        'torch.utils.benchmark',
+        'torch._dynamo.test',
+        'torch._inductor.test',
+        'sklearn.tests',
+        'transformers.commands',
+        'transformers.cli',
+    )
+    return not name.startswith(excluded_prefixes) and not any(part in name for part in excluded_parts)
+
+
 _COLLECT = [
     'av',
     'ctranslate2',
     'faster_whisper',
-    'torch',
-    'torchaudio',
     'pyannote.audio',
     'pyannote.core',
     'pyannote.pipeline',
@@ -23,21 +44,13 @@ _COLLECT = [
     'speechbrain',
     'asteroid_filterbanks',
     'einops',
-    'transformers',
-    'tokenizers',
-    'sentencepiece',
     'huggingface_hub',
-    'numpy',
-    'scipy',
-    'sklearn',
-    'soundfile',
-    'librosa',
     'platformdirs',
 ]
 
 for pkg in _COLLECT:
     try:
-        d, b, h = collect_all(pkg)
+        d, b, h = collect_all(pkg, filter_submodules=keep_runtime_submodule)
         datas += d
         binaries += b
         hiddenimports += h
@@ -82,8 +95,6 @@ a = Analysis(
         'jupyter',
         'notebook',
         'PIL',
-        'mlx',
-        'mlx_whisper',
     ],
     noarchive=False,
 )
@@ -95,21 +106,18 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Scriber',
+    name='scriber',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    # console=False: no terminal window on double-click; stdout still works
-    # when launched from cmd.exe / PowerShell because the parent console is
-    # inherited. This gives a clean GUI experience AND a working CLI.
-    console=False,
+    upx=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,          # TODO: add Assets/icon.ico
+    icon=None,
 )
 
 coll = COLLECT(
@@ -117,7 +125,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
-    name='Scriber',
+    name='scriber-cli',
 )

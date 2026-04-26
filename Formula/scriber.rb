@@ -3,38 +3,29 @@ class Scriber < Formula
   homepage "https://github.com/stvbao/scriber"
   version "0.1.0"
 
+  # Apple Silicon CLI bundle produced by .github/workflows/release.yml.
   # To update: run `shasum -a 256 scriber-<ver>-macos-arm64.tar.gz` on the
-  # artifact produced by the release workflow and paste it below.
-  on_macos do
-    on_arm do
-      url "https://github.com/stvbao/scriber/releases/download/v#{version}/scriber-#{version}-macos-arm64.tar.gz"
-      sha256 "REPLACE_WITH_SHA256_FROM_RELEASE"
-    end
+  # release artifact and paste it below.
+  url "https://github.com/stvbao/scriber/releases/download/v#{version}/scriber-#{version}-macos-arm64.tar.gz"
+  sha256 "REPLACE_WITH_SHA256_FROM_RELEASE"
 
-    # Intel Mac: build from source (no pre-built binary yet).
-    # Run: brew install stvbao/scriber/scriber --build-from-source
-    on_intel do
-      url "https://github.com/stvbao/scriber/archive/refs/tags/v#{version}.tar.gz"
-      sha256 "REPLACE_WITH_SOURCE_SHA256"
+  depends_on arch: :arm64
 
-      depends_on "python@3.12"
-      depends_on "uv" => :build
-
-      def install
-        system "uv", "sync"
-        system ".venv/bin/pyinstaller", "scriber-mac.spec", "--noconfirm"
-        bin.install "dist/Scriber.app/Contents/MacOS/scriber"
-      end
-    end
+  def install
+    libexec.install Dir["*"]
+    bin.install_symlink libexec/"scriber"
   end
 
-  # ── Pre-built binary install (arm64) ────────────────────────────────────────
-  def install
-    bin.install "scriber"
+  def caveats
+    <<~EOS
+      Scriber CLI is installed as `scriber`.
+      `scriber app` launches the GUI from the CLI process; a native Dock name/icon
+      requires a separate Scriber.app bundle.
+    EOS
   end
 
   test do
-    # Smoke-test: --help should exit 0 and print usage
     assert_match "scriber", shell_output("#{bin}/scriber --help 2>&1", 0)
+    assert_match "scriber", shell_output("#{bin}/scriber cache path 2>&1", 0)
   end
 end

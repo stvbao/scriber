@@ -26,9 +26,18 @@ jobs:
           uv sync --all-extras
 
       - name: Build app with PyInstaller
+        env:
+          PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller
         run: |
           source $HOME/.cargo/env
           uv run pyinstaller scriber-mac.spec --noconfirm
+
+      - name: Build CLI with PyInstaller
+        env:
+          PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller
+        run: |
+          source $HOME/.cargo/env
+          uv run pyinstaller scriber-cli-mac.spec --noconfirm
 
       - name: Extract version from tag
         id: version
@@ -52,10 +61,7 @@ jobs:
       - name: Create CLI tarball (for Homebrew)
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          # Extract just the inner binary so Homebrew can install it to bin/
-          cp "dist/Scriber.app/Contents/MacOS/scriber" dist/scriber
-          tar -czf "dist/scriber-${VERSION}-macos-arm64.tar.gz" -C dist scriber
-          rm dist/scriber
+          tar -czf "dist/scriber-${VERSION}-macos-arm64.tar.gz" -C dist/scriber-cli .
 
       - name: Compute SHA256 for Homebrew formula
         run: |
