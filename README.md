@@ -1,21 +1,16 @@
 # Scriber
 
+![GitHub release](https://img.shields.io/github/v/release/stvbao/scriber) ![License](https://img.shields.io/github/license/stvbao/scriber)
+
 Transcription tool built for social scientists and qualitative researchers.
 
 Drop in an audio file, get a transcript. Scriber runs entirely on your own machine — no cloud service, no subscription, and once the model downloads it works offline. Your recordings stay on your desk.
 
-## Contents
+![Scriber screenshot](Assets/screenshot.jpg)
 
-- [Features](#features)
-- [Installation](#installation)
-- [How to Use](#how-to-use)
-- [Speaker Annotation](#speaker-annotation)
-- [Data Privacy](#data-privacy)
-- [Device Selection](#device-selection)
-- [Platform Support](#platform-support)
-- [CLI Reference](#cli-reference)
-- [License](#license)
-- [Credits](#credits)
+## Table of Contents
+
+[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Platform Support](#platform-support) · [CLI Reference](#cli-reference) · [Data Privacy](#data-privacy) · [Roadmap](#roadmap) · [License](#license) · [Credits](#credits)
 
 ## Features
 
@@ -40,7 +35,7 @@ brew tap stvbao/scriber https://github.com/stvbao/scriber
 brew install scriber
 ```
 
-Intel Mac need to install from source, brew install is still in development.
+Intel Mac users need to install from source — Homebrew support for Intel is on the [roadmap](#roadmap).
 
 **From source** — any Mac (requires [uv](https://docs.astral.sh/uv/)):
 
@@ -52,7 +47,7 @@ uv sync
 
 ### Windows
 
-Packaged Windows releases are still in development. To install on Windows today, first install Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+A packaged Windows release is on the [roadmap](#roadmap). To install on Windows today, first install Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```powershell
 git clone https://github.com/stvbao/scriber.git
@@ -62,62 +57,44 @@ uv sync
 
 ## How to Use
 
-Run `scriber` or `scriber app` to open the GUI. If you installed from source, prefix with `uv run`.
+Run `scriber` or `scriber app` to open the GUI. 
+
+If you installed from source, prefix with `uv run`.
 
 For CLI usage, see [CLI Reference](#cli-reference) below.
 
-## Speaker Annotation
+### Model Selection
 
-Speaker annotation labels who is speaking — for example `SPEAKER_00`, `SPEAKER_01`, and so on.
+The default model is `large-v3-turbo` — a good balance of speed and accuracy for most recordings. If you need faster processing or are working on a slower machine, choose a smaller model. Available models from most to least capable: `large-v3-turbo` (default), `large-v3`, `large-v2`, `medium`, `small`, `base`, `tiny`.
 
-To use it:
+Models download on first use and are reused from the local cache. When translation is enabled, Scriber automatically switches to `large-v3` because the turbo variant does not support translation.
 
-1. Create a Hugging Face token at [hf.co/settings/tokens](https://hf.co/settings/tokens)
+### Speaker Annotation
+
+Speaker annotation labels who is speaking — for example `SPEAKER_00`, `SPEAKER_01`, and so on. It requires a free Hugging Face account to download the diarization model.
+
+To enable it:
+
+1. Create a token at [hf.co/settings/tokens](https://hf.co/settings/tokens)
 2. Accept the model license for [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
 3. Paste the token into the GUI field, or pass `--hf-token` in the CLI
+4. If you know the number of speakers, enter it in the GUI for better accuracy — leave it at 0 to auto-detect
 
-The annotation model is downloaded once and cached locally.
-
-If you know how many speakers are in the recording, enter that number in the GUI — it helps pyannote assign speakers more accurately. Leave it at 0 to auto-detect.
-
-Speaker diarization works best when speakers take clear turns. Accuracy drops when multiple people speak at the same time — a common occurrence in focus groups. Results also vary with audio quality and the number of speakers.
-
-## Data Privacy
-
-- Audio files are processed locally
-- No transcription data is sent to a cloud service
-- No API key is required for basic transcription
-- Hugging Face is contacted only to download models
-- Scriber does not send telemetry
-
-## Device Selection
-
-Scriber uses two transcription backends: [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) on Apple Silicon and [faster-whisper](https://github.com/SYSTRAN/faster-whisper) everywhere else. The `auto` setting picks the right one for your machine.
-
-| Your system | Setting | Backend | Supported models |
-|---|---|---|---|
-| Apple Silicon Mac, macOS 14+ | `auto` | mlx-whisper | All models |
-| Apple Silicon Mac, macOS 13 | `auto` | faster-whisper | All models |
-| Intel Mac | `auto` | faster-whisper | All models |
-| Apple Silicon Mac, force MLX | `mlx` | mlx-whisper | All models |
-| Windows/Linux with NVIDIA GPU | `gpu` | faster-whisper + CUDA | All models |
-| CPU-only system | `cpu` | faster-whisper | All models |
-
-Available models, from most to least capable: `large-v3-turbo` (default), `large-v3`, `large-v2`, `medium`, `small`, `base`, `tiny`.
-
-Models download on first use and are reused from the local cache. When translation is enabled, Scriber automatically uses `large-v3` instead of `large-v3-turbo`, because the current turbo variant does not support translation.
+The model downloads once and is cached locally. Annotation works best when speakers take clear turns; accuracy drops when people talk over each other, which is common in focus groups.
 
 ## Platform Support
 
-| Platform | Backend | Packaged release |
-|---|---|---|
-| Apple Silicon macOS 14+ | MLX (default) | Homebrew |
-| Apple Silicon macOS 13 | faster-whisper fallback | Homebrew |
-| Intel macOS | faster-whisper | Source only |
-| Windows with NVIDIA GPU | faster-whisper with CUDA | Source only |
-| Windows or Linux, CPU only | faster-whisper | Source only |
+Scriber uses two transcription backends: [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) on Apple Silicon and [faster-whisper](https://github.com/SYSTRAN/faster-whisper) everywhere else. The `auto` setting picks the right one for your machine.
 
-A standalone macOS DMG and a packaged Windows release are not currently being shipped and are still in development.
+| Platform | Setting | Backend | Packaged release |
+|---|---|---|---|
+| Apple Silicon macOS 14+ | `auto` | mlx-whisper | Homebrew |
+| Apple Silicon macOS 13 | `auto` | faster-whisper | Homebrew |
+| Intel macOS | `auto` | faster-whisper | Source only |
+| Windows/Linux with NVIDIA GPU | `gpu` | faster-whisper + CUDA | Source only |
+| Windows or Linux, CPU only | `cpu` | faster-whisper | Source only |
+
+A standalone macOS `.app` and a packaged Windows `.exe` are on the [roadmap](#roadmap).
 
 ## CLI Reference
 
@@ -168,6 +145,25 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 scriber cache path
 scriber cache clear
 ```
+
+## Data Privacy
+
+- Audio files are processed locally
+- No transcription data is sent to a cloud service
+- No API key is required for basic transcription
+- Hugging Face is contacted only to download models
+- Scriber does not send telemetry
+
+## Roadmap
+
+Scriber is under active development. Planned next:
+
+- **Intel Mac Homebrew support** — publish an `x86_64` CLI bundle so Intel Mac users can install via Homebrew
+- **Homebrew core support** — submit Scriber to homebrew-core so users can install with `brew install scriber` without adding a tap
+- **Packaged releases** — a standalone macOS `.app` and a Windows `.exe`
+- **Text translation via NLLB-200** — translate transcripts to English at the text level, compatible with all models including turbo
+
+For the full engineering notes and task list, see [PLAN.md](./PLAN.md).
 
 ## License
 
