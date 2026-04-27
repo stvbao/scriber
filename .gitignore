@@ -11,3 +11,6 @@ logs/
 tests/*.m4a
 tests/*.mp3
 tests/*.wav
+.tmp-homebrew/
+.tmp-homebrew-tap/
+test/output/
