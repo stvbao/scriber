@@ -133,8 +133,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'Scriber',
         'CFBundleDisplayName': 'Scriber',
-        'CFBundleShortVersionString': '0.1.1',
-        'CFBundleVersion': '0.1.1',
+        'CFBundleShortVersionString': '0.1.2',
+        'CFBundleVersion': '0.1.2',
         'NSHighResolutionCapable': True,
         'NSRequiresAquaSystemAppearance': False,
         'LSMinimumSystemVersion': '14.0',
