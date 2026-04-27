@@ -6,11 +6,11 @@ Transcription tool built for social scientists and qualitative researchers.
 
 Drop in an audio file, get a transcript. Scriber runs entirely on your own machine — no cloud service, no subscription, and once the model downloads it works offline. Your recordings stay on your desk.
 
-![Scriber screenshot](Assets/screenshot.jpg)
+![Scriber screenshot](Assets/screenshot.png)
 
 ## Table of Contents
 
-[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Platform Support](#platform-support) · [CLI Reference](#cli-reference) · [Data Privacy](#data-privacy) · [Roadmap](#roadmap) · [License](#license) · [Credits](#credits)
+[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Models and Platform Support](#models-and-platform-support) · [CLI Reference](#cli-reference) · [Data Privacy](#data-privacy) · [Roadmap](#roadmap) · [License](#license) · [Credits](#credits)
 
 ## Features
 
@@ -63,12 +63,6 @@ If you installed from source, prefix with `uv run`.
 
 For CLI usage, see [CLI Reference](#cli-reference) below.
 
-### Model Selection
-
-The default model is `large-v3-turbo` — a good balance of speed and accuracy for most recordings. If you need faster processing or are working on a slower machine, choose a smaller model. Available models from most to least capable: `large-v3-turbo` (default), `large-v3`, `large-v2`, `medium`, `small`, `base`, `tiny`.
-
-Models download on first use and are reused from the local cache. When translation is enabled, Scriber automatically switches to `large-v3` because the turbo variant does not support translation.
-
 ### Speaker Annotation
 
 Speaker annotation labels who is speaking — for example `SPEAKER_00`, `SPEAKER_01`, and so on. It requires a free Hugging Face account to download the diarization model.
@@ -82,19 +76,19 @@ To enable it:
 
 The model downloads once and is cached locally. Annotation works best when speakers take clear turns; accuracy drops when people talk over each other, which is common in focus groups.
 
-## Platform Support
+## Models and Platform Support
 
 Scriber uses two transcription backends: [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) on Apple Silicon and [faster-whisper](https://github.com/SYSTRAN/faster-whisper) everywhere else. The `auto` setting picks the right one for your machine.
 
-| Platform | Setting | Backend | Packaged release |
+| Platform | Device | Backend | Supported models |
 |---|---|---|---|
-| Apple Silicon macOS 14+ | `auto` | mlx-whisper | Homebrew |
-| Apple Silicon macOS 13 | `auto` | faster-whisper | Homebrew |
-| Intel macOS | `auto` | faster-whisper | Source only |
-| Windows/Linux with NVIDIA GPU | `gpu` | faster-whisper + CUDA | Source only |
-| Windows or Linux, CPU only | `cpu` | faster-whisper | Source only |
+| Apple Silicon macOS 14+ | MLX | mlx-whisper | All models |
+| Apple Silicon macOS 13 | CPU | faster-whisper | All models |
+| Intel macOS | CPU | faster-whisper | All models |
+| Windows/Linux with NVIDIA GPU | CUDA | faster-whisper | All models |
+| Windows or Linux, CPU only | CPU | faster-whisper | All models |
 
-A standalone macOS `.app` and a packaged Windows `.exe` are on the [roadmap](#roadmap).
+Default model: `large-v3-turbo` — fast and accurate for most recordings. Available models from most to least capable: `large-v3-turbo`, `large-v3`, `large-v2`, `medium`, `small`, `base`, `tiny`. Models download on first use and are reused from the local cache. When translation is enabled, Scriber automatically switches to `large-v3` because the turbo variant does not support translation.
 
 ## CLI Reference
 
