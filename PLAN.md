@@ -1,6 +1,6 @@
 # Scriber — Build Plan
 
-Offline transcription app for qualitative researchers. No cloud, no dependencies to install, no terminal knowledge required.
+Offline transcription app for qualitative researchers. No cloud, local-first, and currently released as an Apple Silicon Homebrew package with source-based fallback for other platforms.
 
 ---
 
@@ -9,7 +9,7 @@ Offline transcription app for qualitative researchers. No cloud, no dependencies
 A desktop app + CLI tool that transcribes audio files (interviews, focus groups, field recordings) entirely on the user's machine. Built for social scientists and qualitative researchers.
 
 **Key principles:**
-- Zero install friction — download and run, nothing else
+- Minimal install friction — Homebrew on Apple Silicon, source fallback elsewhere
 - No internet required after first model download
 - Works on Mac and Windows
 - Fast on Apple Silicon, solid on Windows CPU/GPU
@@ -26,8 +26,8 @@ A desktop app + CLI tool that transcribes audio files (interviews, focus groups,
 | Audio loading | PyAV | Bundled ffmpeg libs, no separate install |
 | Speaker annotation | pyannote v4 | Best open-source diarization |
 | Packaging | PyInstaller | Single binary, no Python install needed |
-| Distribution (Mac) | Homebrew tap + unsigned DMG | Free, familiar to researchers |
-| Distribution (Windows) | PowerShell install script + .exe zip | Simple download and run |
+| Distribution (Mac) | Homebrew tap + packaged CLI tarball | Current public release path; arm64-only for now |
+| Distribution (Windows) | Source run today; PowerShell install script + .exe zip later | Windows packaging exists in-repo but public packaged release is paused |
 
 ---
 
@@ -59,7 +59,7 @@ scriber/
 │   └── scriber.rb           ← Homebrew formula
 ├── .github/
 │   └── workflows/
-│       └── release.yml      ← GitHub Actions: build Mac + Windows on tag
+│       └── release.yml      ← GitHub Actions: build Mac Homebrew CLI artifact on tag
 ├── pyproject.toml
 └── PLAN.md                  ← this file
 ```
@@ -103,7 +103,7 @@ else:
 
 ### Pause Markers
 
-Optional feature (checkbox in GUI, `--pause-markers` / `--pause-threshold` in CLI). When enabled, inserts `[pause Xs]` between segments where the silence gap meets or exceeds the threshold (default: 2s).
+Optional feature (checkbox in GUI). When enabled, inserts `[pause Xs]` between segments where the silence gap meets or exceeds the threshold (default: 2s).
 
 | Format | Pause markers |
 |---|---|
@@ -243,12 +243,16 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] PyInstaller spec file for Mac → `.app` → unsigned DMG (`scriber-mac.spec`)
 - [x] PyInstaller spec file for Mac CLI → Homebrew tarball (`scriber-cli-mac.spec`)
 - [x] PyInstaller spec file for Windows → `.exe` → zip (`scriber-win.spec`)
-- [x] GitHub Actions workflow: build Mac app, Mac CLI tarball, and Windows zip on git tag push (`.github/workflows/release.yml`)
+- [x] GitHub Actions workflow: build Mac CLI tarball and GitHub release on tag push (`.github/workflows/release.yml`)
 - [x] Homebrew formula installs Apple Silicon CLI bundle under `libexec` with `bin/scriber` symlink
-- [x] PowerShell install script for Windows (`scripts/install.ps1`)
-- [ ] Add real `.icns` / `.ico` assets to packaged builds
+- [x] Homebrew release `v0.1.2` published from the public repo with working tap/install flow
+- [x] PowerShell install script for Windows (`scripts/install.ps1`) kept for future packaged Windows releases
+- [x] Add real `.icns` / `.ico` assets to packaged builds
 - [ ] Validate macOS Dock name/icon through `dist/Scriber.app` (terminal-launched Python still appears as Python in Dock)
 - [x] Trim PyInstaller specs (first pass) to reduce bundled optional dependency trees and artifact size
+- [ ] Add Intel macOS Homebrew support: build `x86_64` CLI tarball, publish both Mac artifacts, branch `Formula/scriber.rb` with `on_arm` / `on_intel`, and test on a real Intel Mac
+- [ ] Restore public DMG release path once lightweight/shared-worker packaging is ready
+- [ ] Restore public packaged Windows release path once packaging/test flow is ready
 - [ ] Split packaging into a lightweight GUI shell plus shared heavy worker executable (`scriber-worker`) so app launch stays fast and the transcription runtime is loaded only when needed
 - [ ] Point both packaged GUI and packaged CLI at the shared worker runtime instead of shipping separate heavy execution paths
 - [ ] Resolve pyannote/torchcodec native FFmpeg packaging without requiring user-installed FFmpeg
@@ -260,10 +264,10 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] CLI progress/activity styling aligned with GUI
 - [x] CLI cache management commands (`scriber cache path`, `scriber cache clear`)
 - [x] Suppress non-critical unlabeled speaker segment messages in normal logs
+- [x] README for end users (non-technical)
 - [ ] User-friendly error messages (no stack traces for end users)
 - [ ] Hallucination suppression (VAD filter already in faster-whisper)
 - [ ] Large file handling (chunking for memory)
-- [ ] README for end users (non-technical)
 
 ### Backlog — Future Features
 - [ ] **Text translation via NLLB-200** — `facebook/nllb-200-distilled-600M` via transformers pipeline. Translates transcript text segments to English after transcription. Works with any Whisper model including turbo (Whisper turbo's audio translation is broken). ~600MB one-time download.
@@ -283,16 +287,6 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 | Speaker count wrong | Let pyannote auto-detect; offer manual override |
 | SRT timing off | Segment-level timestamps are accurate; no word alignment needed |
 | Windows Gatekeeper equivalent (SmartScreen) | Sign with free cert or instruct users to allow |
-
----
-
-## What We Are NOT Building
-
-- Web interface (wrong audience)
-- REST API (wrong audience)
-- WhisperX dependency (k2 broken on Windows)
-- ffmpeg as separate install (PyAV replaces it)
-- whisply dependency (full control now)
 
 ---
 
