@@ -1,13 +1,13 @@
 class Scriber < Formula
   desc "Offline transcription for qualitative researchers"
   homepage "https://github.com/stvbao/scriber"
-  version "0.1.0"
+  version "0.1.2"
 
   # Apple Silicon CLI bundle produced by .github/workflows/release.yml.
   # To update: run `shasum -a 256 scriber-<ver>-macos-arm64.tar.gz` on the
   # release artifact and paste it below.
   url "https://github.com/stvbao/scriber/releases/download/v#{version}/scriber-#{version}-macos-arm64.tar.gz"
-  sha256 "REPLACE_WITH_SHA256_FROM_RELEASE"
+  sha256 "524c3cd2b8b5109feb9a59541230cd17946b26d99198aa71aa30dcd85c1f3a47"
 
   depends_on arch: :arm64
 

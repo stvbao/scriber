@@ -78,7 +78,7 @@ jobs:
 
             **Homebrew (macOS CLI)**
             ```
-            brew tap stvbao/scriber
+            brew tap stvbao/scriber https://github.com/stvbao/scriber
             brew install scriber
             ```
 
