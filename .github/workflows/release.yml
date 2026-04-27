@@ -9,9 +9,9 @@ permissions:
   contents: write
 
 jobs:
-  # ── macOS (Apple Silicon) ────────────────────────────────────────────────────
-  build-mac:
-    runs-on: macos-14   # M1 runner (arm64)
+  # ── macOS CLI (Apple Silicon, Homebrew artifact) ────────────────────────────
+  build-cli-mac:
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -25,13 +25,6 @@ jobs:
           uv python install 3.12
           uv sync --all-extras
 
-      - name: Build app with PyInstaller
-        env:
-          PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller
-        run: |
-          source $HOME/.cargo/env
-          uv run pyinstaller scriber-mac.spec --noconfirm
-
       - name: Build CLI with PyInstaller
         env:
           PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller
@@ -42,21 +35,6 @@ jobs:
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Create DMG
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          STAGING="dist/dmg_staging"
-          mkdir -p "$STAGING"
-          cp -r dist/Scriber.app "$STAGING/"
-          ln -s /Applications "$STAGING/Applications"
-
-          hdiutil create \
-            -volname "Scriber $VERSION" \
-            -srcfolder "$STAGING" \
-            -ov \
-            -format UDZO \
-            "dist/Scriber-${VERSION}-macos-arm64.dmg"
 
       - name: Create CLI tarball (for Homebrew)
         run: |
@@ -71,51 +49,12 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: mac-artifacts
-          path: |
-            dist/Scriber-*-macos-arm64.dmg
-            dist/scriber-*-macos-arm64.tar.gz
+          name: cli-mac-artifacts
+          path: dist/scriber-*-macos-arm64.tar.gz
 
-  # ── Windows (x86_64) ─────────────────────────────────────────────────────────
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Install uv
-        run: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-      - name: Set up Python and install dependencies
-        run: |
-          uv python install 3.12
-          uv sync
-
-      - name: Build exe with PyInstaller
-        run: uv run pyinstaller scriber-win.spec --noconfirm
-
-      - name: Extract version from tag
-        id: version
-        shell: bash
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Create zip
-        shell: pwsh
-        run: |
-          $Version = "${{ steps.version.outputs.VERSION }}"
-          Compress-Archive `
-            -Path "dist\Scriber" `
-            -DestinationPath "dist\Scriber-${Version}-windows.zip"
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: windows-artifacts
-          path: dist/Scriber-*-windows.zip
-
-  # ── GitHub Release ───────────────────────────────────────────────────────────
+  # ── GitHub Release (CLI only) ────────────────────────────────────────────────
   release:
-    needs: [build-mac, build-windows]
+    needs: [build-cli-mac]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -137,24 +76,17 @@ jobs:
           body: |
             ## Install
 
-            **macOS (Apple Silicon, M1–M5)**
-            Download `Scriber-${{ steps.version.outputs.VERSION }}-macos-arm64.dmg`, open it, drag Scriber to Applications.
-
-            > First launch: right-click → Open to bypass Gatekeeper (app is unsigned).
-
-            **Windows**
-            Run the PowerShell install script:
-            ```powershell
-            irm https://raw.githubusercontent.com/stvbao/scriber/main/scripts/install.ps1 | iex
-            ```
-            Or download `Scriber-${{ steps.version.outputs.VERSION }}-windows.zip` and extract anywhere.
-
             **Homebrew (macOS CLI)**
             ```
             brew tap stvbao/scriber
             brew install scriber
             ```
-            *(Update `Formula/scriber.rb` with the sha256 from this release's `scriber-${{ steps.version.outputs.VERSION }}-macos-arm64.tar.gz`.)*
+
+            This release publishes the CLI tarball only:
+            `scriber-${{ steps.version.outputs.VERSION }}-macos-arm64.tar.gz`
+
+            After the release is published, update `Formula/scriber.rb` with the
+            sha256 from that tarball so Homebrew installs the new version.
 
             ## What's new
             See [PLAN.md](https://github.com/stvbao/scriber/blob/main/PLAN.md) for details.
