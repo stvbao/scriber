@@ -8,6 +8,8 @@ datas = []
 binaries = []
 hiddenimports = []
 
+datas += collect_data_files('scriber.gui.assets')
+
 # Full collection for every package that has native extensions or lazy imports
 # mlx / mlx_whisper intentionally omitted (Apple Silicon only)
 _COLLECT = [
@@ -68,6 +70,7 @@ a = Analysis(
         'scriber.core.model_cache',
         'scriber.core.translate',
         'scriber.gui.icon',
+        'scriber.gui.assets',
         'scriber.gui.main_window',
         'scriber.gui.worker',
         'scriber.gui.widgets',
@@ -109,7 +112,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,          # TODO: add Assets/icon.ico
+    icon='Assets/icon.ico',
 )
 
 coll = COLLECT(

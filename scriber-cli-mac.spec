@@ -10,6 +10,8 @@ datas = []
 binaries = []
 hiddenimports = []
 
+datas += collect_data_files('scriber.gui.assets')
+
 # Avoid dragging package test suites, examples, and training/debug tools into the
 # Homebrew CLI artifact. Runtime package hooks still collect native libraries.
 def keep_runtime_submodule(name):
@@ -132,6 +134,7 @@ a = Analysis(
         'scriber.core.model_cache',
         'scriber.core.translate',
         'scriber.gui.icon',
+        'scriber.gui.assets',
         'scriber.gui.main_window',
         'scriber.gui.worker',
         'scriber.gui.widgets',

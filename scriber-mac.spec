@@ -8,6 +8,8 @@ datas = []
 binaries = []
 hiddenimports = []
 
+datas += collect_data_files('scriber.gui.assets')
+
 # Full collection for every package that has native extensions or lazy imports
 _COLLECT = [
     'av',
@@ -73,6 +75,7 @@ a = Analysis(
         'scriber.core.model_cache',
         'scriber.core.translate',
         'scriber.gui.icon',
+        'scriber.gui.assets',
         'scriber.gui.main_window',
         'scriber.gui.worker',
         'scriber.gui.widgets',
@@ -109,7 +112,7 @@ exe = EXE(
     target_arch=None,  # uses current arch (arm64 on macos-14 runner)
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,         # TODO: add Assets/icon.icns
+    icon='Assets/icon.icns',
 )
 
 coll = COLLECT(
@@ -125,7 +128,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Scriber.app',
-    icon=None,         # TODO: add Assets/icon.icns
+    icon='Assets/icon.icns',
     bundle_identifier='com.stvbao.scriber',
     info_plist={
         'CFBundleName': 'Scriber',
