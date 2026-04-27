@@ -6,6 +6,10 @@ import numpy as np
 TARGET_SR = 16_000
 
 
+def prewarm_audio_backend() -> None:
+    import av  # noqa: F401
+
+
 def load_audio(path: Path) -> np.ndarray:
     """Load any audio file and return a 16kHz mono float32 numpy array."""
     import av

@@ -220,6 +220,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1000, 720)
         self.resize(1000, 720)
         self.worker          = None
+        self._warm_worker    = None
         self._selected_files = []
         self._output_folder  = Path.home() / "Downloads"
         self._build_ui()
@@ -236,7 +237,9 @@ class MainWindow(QMainWindow):
         self._pulse_start  = 0.0
         self._pulse_label  = ""
         self._hard_stopping = False
+        self._closing = False
         self._stopping_workers = []
+        QTimer.singleShot(150, self._ensure_warm_worker)
 
     def _build_ui(self):
         root = QWidget()
@@ -512,6 +515,8 @@ class MainWindow(QMainWindow):
         self.worker = None
         self._hard_stopping = False
         self._set_btn_start()
+        if not self._closing:
+            QTimer.singleShot(0, self._ensure_warm_worker)
 
     def _start(self):
         if not self._selected_files:
@@ -547,7 +552,7 @@ class MainWindow(QMainWindow):
         self._pulse_label  = ""
         self._hard_stopping = False
 
-        worker = Worker(config)
+        worker = self._take_worker_for_run()
         self.worker = worker
         worker.log.connect(self._log_from_worker)
         worker.log_replace.connect(self._log_replace_from_worker)
@@ -556,12 +561,55 @@ class MainWindow(QMainWindow):
         worker.suspend_pulse.connect(self._suspend_pulse)
         worker.resume_pulse.connect(self._resume_pulse)
         worker.done.connect(self._on_done)
-        worker.start()
+        worker.configure(config)
+        if not worker.isReady():
+            self._log("Preparing worker...")
+        worker.begin()
 
         self.start_btn.setText("Stop")
         self.start_btn.setProperty("stop", True)
         self.start_btn.style().unpolish(self.start_btn)
         self.start_btn.style().polish(self.start_btn)
+
+    def _ensure_warm_worker(self):
+        if self.worker or self._warm_worker:
+            return
+        worker = Worker()
+        worker.ready.connect(self._on_warm_worker_ready)
+        worker.done.connect(self._on_warm_worker_done)
+        worker.start()
+        self._warm_worker = worker
+
+    def _on_warm_worker_ready(self):
+        if self.sender() is not self._warm_worker:
+            return
+
+    def _on_warm_worker_done(self):
+        worker = self.sender()
+        if worker is not self._warm_worker:
+            return
+        self._warm_worker = None
+        worker.deleteLater()
+        if not self._closing and not self.worker and not self._hard_stopping:
+            QTimer.singleShot(250, self._ensure_warm_worker)
+
+    def _take_worker_for_run(self) -> Worker:
+        if self._warm_worker:
+            worker = self._warm_worker
+            try:
+                worker.ready.disconnect(self._on_warm_worker_ready)
+            except TypeError:
+                pass
+            try:
+                worker.done.disconnect(self._on_warm_worker_done)
+            except TypeError:
+                pass
+            self._warm_worker = None
+            return worker
+
+        worker = Worker()
+        worker.start()
+        return worker
 
     def _suspend_pulse(self):
         if not self._worker_signal_current():
@@ -590,8 +638,13 @@ class MainWindow(QMainWindow):
             return
         self._pulse_timer.stop()
         self._replace_active = False
+        finished_worker = self.worker
         self.worker = None
         self._set_btn_start()
+        if finished_worker:
+            finished_worker.deleteLater()
+        if not self._closing:
+            QTimer.singleShot(250, self._ensure_warm_worker)
 
     def _set_btn_start(self):
         self._pulse_timer.stop()
@@ -696,9 +749,22 @@ class MainWindow(QMainWindow):
             self._stopping_workers.remove(worker)
         worker.deleteLater()
 
+    def _shutdown_worker(self, worker: Worker | None):
+        if not worker:
+            return
+        worker.terminate()
+        worker.wait(2000)
+
     def closeEvent(self, event):
-        if self.worker and self.worker.isRunning():
-            self._hard_stop_worker()
+        self._closing = True
+        self._pulse_timer.stop()
+        self._shutdown_worker(self.worker)
+        self._shutdown_worker(self._warm_worker)
+        for worker in list(self._stopping_workers):
+            self._shutdown_worker(worker)
+        self.worker = None
+        self._warm_worker = None
+        self._stopping_workers.clear()
         event.accept()
 
     def _format_log_line(self, ts: str, msg: str) -> str:
@@ -782,6 +848,7 @@ class MainWindow(QMainWindow):
             return LOG_GREEN
         if (
             stripped.startswith("Audio length:")
+            or stripped.startswith("Preparing worker")
             or stripped.startswith("Loading audio")
             or stripped.startswith("Speakers identified:")
             or stripped.startswith("Output folder:")

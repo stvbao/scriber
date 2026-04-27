@@ -1,4 +1,7 @@
+import io
+import json
 from types import SimpleNamespace
+import sys
 
 import numpy as np
 import pytest
@@ -156,6 +159,51 @@ def test_auto_backend_uses_faster_whisper_when_mlx_missing(monkeypatch):
         transcribe._get_backend("mlx")
 
 
+def test_gpu_backend_uses_mlx_on_supported_mac(monkeypatch):
+    import scriber.core.transcribe as transcribe
+
+    monkeypatch.setattr(transcribe.sys, "platform", "darwin")
+    monkeypatch.setattr(transcribe.platform, "machine", lambda: "arm64")
+    monkeypatch.setattr(transcribe.platform, "mac_ver", lambda: ("14.4.0", ("", "", ""), ""))
+    monkeypatch.setattr(transcribe, "_has_mlx_whisper", lambda: True)
+
+    assert transcribe._get_backend("gpu") == "mlx"
+
+
+def test_faster_whisper_runtime_uses_library_auto_defaults():
+    import scriber.core.transcribe as transcribe
+
+    assert transcribe._faster_whisper_runtime("auto") == ("auto", "default")
+    assert transcribe._faster_whisper_runtime("cpu") == ("cpu", "int8")
+
+
+def test_faster_whisper_runtime_avoids_cuda_on_mac_gpu(monkeypatch):
+    import scriber.core.transcribe as transcribe
+
+    monkeypatch.setattr(transcribe.sys, "platform", "darwin")
+
+    assert transcribe._faster_whisper_runtime("gpu") == ("auto", "default")
+
+
+def test_gpu_init_error_is_user_friendly(monkeypatch):
+    import scriber.core.transcribe as transcribe
+
+    class BrokenWhisperModel:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("CUDA driver version is insufficient for CUDA runtime version")
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", SimpleNamespace(WhisperModel=BrokenWhisperModel))
+
+    with pytest.raises(RuntimeError, match="CUDA GPU mode is unavailable on this system"):
+        transcribe._transcribe_faster_whisper(
+            np.array([0.0], dtype=np.float32),
+            model="large-v3-turbo",
+            language=None,
+            device="gpu",
+            task="transcribe",
+        )
+
+
 def test_html_export_escapes_transcript_and_speaker(tmp_path):
     from scriber.core.export import export
 
@@ -172,3 +220,93 @@ def test_html_export_escapes_transcript_and_speaker(tmp_path):
     assert "A&amp;B &lt;lead&gt;" in html
     assert "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; text" in html
     assert "[pause 1s]" in html
+
+
+def test_faster_whisper_turbo_uses_correct_hf_repo():
+    from scriber.core.model_cache import model_repo
+
+    assert model_repo("large-v3-turbo", "faster-whisper") == "mobiuslabsgmbh/faster-whisper-large-v3-turbo"
+
+
+def test_batch_logs_loading_before_transcribing_and_resets_timer_at_transcription(monkeypatch, tmp_path):
+    from scriber.core.batch import BatchConfig, run_batch
+
+    monkeypatch.setattr("scriber.core.audio.load_audio", lambda path: np.array([0.0], dtype=np.float32))
+    monkeypatch.setattr(
+        "scriber.core.transcribe.transcribe",
+        lambda *args, **kwargs: ([Segment(0.0, 1.0, "hello")], "en"),
+    )
+    monkeypatch.setattr("scriber.core.transcribe._get_backend", lambda device: "mlx")
+    monkeypatch.setattr("scriber.core.export.export", lambda *args, **kwargs: None)
+    monkeypatch.setattr("scriber.core.model_cache.is_model_cached", lambda model, backend: True)
+    monkeypatch.setattr("scriber.core.model_cache.is_pyannote_cached", lambda: True)
+
+    events = []
+
+    def emit(event_type: str, message: str = "", **payload):
+        events.append((event_type, message))
+
+    config = BatchConfig(
+        files=[tmp_path / "input.m4a"],
+        output_folder=tmp_path / "out",
+        model="large-v3-turbo",
+        device="auto",
+        export="txt",
+    )
+
+    run_batch(config, emit)
+
+    logged_messages = [message for event_type, message in events if event_type == "log"]
+    load_index = logged_messages.index("  Loading audio...")
+    transcribe_index = logged_messages.index("  Transcribing...")
+
+    assert load_index < transcribe_index
+
+    reset_indices = [i for i, (event_type, _) in enumerate(events) if event_type == "reset_timer"]
+    transcribe_log_event_index = next(
+        i for i, (event_type, message) in enumerate(events)
+        if event_type == "log" and message == "  Transcribing..."
+    )
+    assert reset_indices == [transcribe_log_event_index - 1]
+
+
+def test_worker_runtime_emits_ready_before_running_batch(monkeypatch):
+    from scriber.gui.worker_runtime import run_worker_from_stdin
+
+    seen = {"order": []}
+
+    def fake_run_batch(config, emit):
+        seen["order"].append("run_batch")
+        seen["files"] = [str(path) for path in config.files]
+
+    monkeypatch.setattr("scriber.gui.worker_runtime._prewarm_runtime", lambda: seen["order"].append("prewarm"))
+    monkeypatch.setattr("scriber.gui.worker_runtime.run_batch", fake_run_batch)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(json.dumps({"files": ["input.m4a"], "device": "auto", "model": "large-v3-turbo"})),
+    )
+    stdout = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", stdout)
+
+    assert run_worker_from_stdin() == 0
+    lines = stdout.getvalue().splitlines()
+    assert json.loads(lines[0])["type"] == "ready"
+    assert seen["order"] == ["prewarm", "run_batch"]
+    assert seen["files"] == ["input.m4a"]
+
+
+def test_worker_runtime_prewarm_calls_audio_and_transcription_helpers(monkeypatch):
+    from scriber.gui.worker_runtime import _prewarm_runtime
+
+    seen = []
+
+    monkeypatch.setattr("scriber.core.audio.prewarm_audio_backend", lambda: seen.append("audio"))
+    monkeypatch.setattr(
+        "scriber.core.transcribe.prewarm_transcription_backend",
+        lambda: seen.append("transcribe"),
+    )
+
+    _prewarm_runtime()
+
+    assert seen == ["audio", "transcribe"]

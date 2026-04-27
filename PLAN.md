@@ -51,7 +51,8 @@ scriber/
 │   └── gui/
 │       ├── main_window.py   ← PyQt6 main window
 │       ├── icon.py          ← generated Qt app/window icon
-│       ├── worker.py        ← killable GUI worker subprocess wrapper
+│       ├── worker.py        ← GUI-side subprocess wrapper + signal bridge
+│       ├── worker_runtime.py← subprocess entrypoint for batch execution/prewarm
 │       └── widgets.py       ← custom UI components
 ├── tests/
 ├── Formula/
@@ -229,6 +230,9 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Inline translation warning shown only when large-v3 substitution applies; translation step logs as "Transcribing and translating"
 - [x] Download progress preserves "Downloading, first time only..." line in GUI log
 - [x] Hard stop: GUI runs transcription batch in a killable worker subprocess
+- [x] Warm worker: GUI prestarts a background worker and reuses it when ready
+- [x] Worker prewarm: audio/transcription imports happen before worker announces ready
+- [x] Clean GUI shutdown: no respawn during close, worker subprocesses are waited out before exit
 - [x] GUI log colors/style modeled after CLI output
 - [x] GUI checkbox hit targets improved for reliable clicks
 - [x] Cmd+W closes the GUI window on macOS
@@ -244,7 +248,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] PowerShell install script for Windows (`scripts/install.ps1`)
 - [ ] Add real `.icns` / `.ico` assets to packaged builds
 - [ ] Validate macOS Dock name/icon through `dist/Scriber.app` (terminal-launched Python still appears as Python in Dock)
-- [ ] Trim PyInstaller specs to reduce bundled optional dependency trees and artifact size
+- [x] Trim PyInstaller specs (first pass) to reduce bundled optional dependency trees and artifact size
 - [ ] Resolve pyannote/torchcodec native FFmpeg packaging without requiring user-installed FFmpeg
 - [ ] Consider isolating speaker annotation in its own phase subprocess to avoid PyAV/torchcodec FFmpeg collisions
 - [ ] Test on clean machines (no Python, no dev tools)

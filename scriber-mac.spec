@@ -2,7 +2,7 @@
 # PyInstaller spec for macOS (Apple Silicon, arm64)
 # Produces: dist/Scriber.app  +  dist/Scriber-<ver>-macos-arm64.tar.gz (via CI)
 
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs, collect_submodules
 
 datas = []
 binaries = []
@@ -26,8 +26,6 @@ _COLLECT = [
     'tokenizers',
     'sentencepiece',
     'huggingface_hub',
-    'mlx',
-    'mlx_whisper',
     'numpy',
     'scipy',
     'sklearn',
@@ -44,6 +42,12 @@ for pkg in _COLLECT:
         hiddenimports += h
     except Exception:
         pass  # package not installed (e.g. CUDA-only wheels absent on Mac)
+
+# MLX packages raise during import on headless builders, so collect the files
+# directly instead of relying on import-time module discovery.
+datas += collect_data_files('mlx', include_py_files=True)
+datas += collect_data_files('mlx_whisper', include_py_files=True)
+binaries += collect_dynamic_libs('mlx')
 
 a = Analysis(
     ['scriber/__main__.py'],

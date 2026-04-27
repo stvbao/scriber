@@ -1,6 +1,7 @@
 import os
 import sys
 import warnings
+import multiprocessing
 
 
 def _set_runtime_env() -> None:
@@ -49,6 +50,9 @@ def _clean_macos_dyld_env() -> None:
 
 _set_runtime_env()
 _clean_macos_dyld_env()
+# Required for frozen builds on macOS/Windows so multiprocessing helper
+# processes (including resource_tracker) do not re-enter our CLI parser.
+multiprocessing.freeze_support()
 
 from pathlib import Path
 from platformdirs import user_cache_dir
@@ -58,23 +62,28 @@ _cache = Path(user_cache_dir("scriber")) / "models"
 _cache.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("HF_HUB_CACHE", str(_cache))
 
-from scriber.cli import parse_args, run_cache, run_cli
-from scriber.app import run_app
-
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "__gui_worker__":
-        from scriber.gui.worker import run_worker_from_stdin
+        from scriber.gui.worker_runtime import run_worker_from_stdin
 
         raise SystemExit(run_worker_from_stdin())
+
+    from scriber.cli import parse_args
 
     args = parse_args()
 
     if args.subcommand == "app" or len(sys.argv) == 1:
+        from scriber.app import run_app
+
         run_app()
     elif args.subcommand == "cache":
+        from scriber.cli import run_cache
+
         run_cache(args)
     else:
+        from scriber.cli import run_cli
+
         run_cli(args)
 
 

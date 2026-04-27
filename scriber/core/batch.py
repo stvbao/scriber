@@ -107,7 +107,6 @@ def run_batch(config: BatchConfig | dict[str, Any], emit: Emit) -> BatchResult:
         emit("file_start", file.name, index=i, total=len(files))
         emit("suspend_pulse")
         emit("log", f"\n[{i}/{len(files)}] {file.name}")
-        emit("reset_timer")
         file_start = perf_counter()
 
         try:
@@ -160,6 +159,7 @@ def run_batch(config: BatchConfig | dict[str, Any], emit: Emit) -> BatchResult:
 
             action = "Transcribing and translating" if task == "translate" else "Transcribing"
             emit("log", "")
+            emit("reset_timer")
             emit("log", f"  {action}...")
             step_start = perf_counter()
             emit("resume_pulse", action)
