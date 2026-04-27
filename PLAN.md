@@ -206,7 +206,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] pyannote accepts pre-loaded audio tensor (no re-decoding)
 - [x] MPS / CUDA acceleration for pyannote; CPU fallback
 - [x] Pipeline cached in memory across batch files
-- [ ] Test with multi-speaker interview files
+- [x] Test with multi-speaker interview files
 
 ### Phase 4 — GUI
 - [x] Port existing Transcriber PyQt6 GUI to new core
@@ -249,6 +249,8 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [ ] Add real `.icns` / `.ico` assets to packaged builds
 - [ ] Validate macOS Dock name/icon through `dist/Scriber.app` (terminal-launched Python still appears as Python in Dock)
 - [x] Trim PyInstaller specs (first pass) to reduce bundled optional dependency trees and artifact size
+- [ ] Split packaging into a lightweight GUI shell plus shared heavy worker executable (`scriber-worker`) so app launch stays fast and the transcription runtime is loaded only when needed
+- [ ] Point both packaged GUI and packaged CLI at the shared worker runtime instead of shipping separate heavy execution paths
 - [ ] Resolve pyannote/torchcodec native FFmpeg packaging without requiring user-installed FFmpeg
 - [ ] Consider isolating speaker annotation in its own phase subprocess to avoid PyAV/torchcodec FFmpeg collisions
 - [ ] Test on clean machines (no Python, no dev tools)
@@ -264,7 +266,7 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [ ] README for end users (non-technical)
 
 ### Backlog — Future Features
-- [x] **Text translation via NLLB-200** — `facebook/nllb-200-distilled-600M` via transformers pipeline. Translates transcript text segments to English after transcription. Works with any Whisper model including turbo (Whisper turbo's audio translation is broken). ~600MB one-time download.
+- [ ] **Text translation via NLLB-200** — `facebook/nllb-200-distilled-600M` via transformers pipeline. Translates transcript text segments to English after transcription. Works with any Whisper model including turbo (Whisper turbo's audio translation is broken). ~600MB one-time download.
 - [ ] **Dual-language output** — "Export language" dropdown: `Original` / `English` / `Both`. When `Both`, transcribe once (original language) then run NLLB-200 on segments for English. Diarization runs once, speaker labels merge into both outputs.
 
 ---
