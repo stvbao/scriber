@@ -57,11 +57,16 @@ scriber/
 ├── tests/
 ├── Formula/
 │   └── scriber.rb           ← Homebrew formula
+├── packaging/
+│   ├── assets/              ← packaged app icons
+│   └── pyinstaller/         ← PyInstaller build specs
+├── docs/
+│   └── PLAN.md              ← this file
 ├── .github/
 │   └── workflows/
 │       └── release.yml      ← GitHub Actions: build Mac Homebrew CLI artifact on tag
 ├── pyproject.toml
-└── PLAN.md                  ← this file
+└── README.md
 ```
 
 ---
@@ -80,8 +85,8 @@ else:
 | Platform | Hardware | Backend | Speed |
 |---|---|---|---|
 | Mac (M1–M5) | Apple Silicon, macOS 14+ | MLX-Whisper | Very fast |
-| Mac (M1–M5) | Apple Silicon, macOS 13 | faster-whisper | Good |
-| Mac | Intel | faster-whisper | Moderate |
+| Mac (M1–M5) | Apple Silicon, macOS 13 | faster-whisper (CPU) | Good |
+| Mac | Intel | faster-whisper (CPU) | Moderate |
 | Windows/Linux | NVIDIA GPU | faster-whisper (CUDA) | Fast |
 | Windows/Linux | CPU only | faster-whisper (CPU) | Slow but works |
 
@@ -240,9 +245,9 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 - [x] Shared batch pipeline (`core/batch.py`) used by GUI worker subprocess and CLI
 
 ### Phase 5 — Packaging
-- [x] PyInstaller spec file for Mac → `.app` → unsigned DMG (`scriber-mac.spec`)
-- [x] PyInstaller spec file for Mac CLI → Homebrew tarball (`scriber-cli-mac.spec`)
-- [x] PyInstaller spec file for Windows → `.exe` → zip (`scriber-win.spec`)
+- [x] PyInstaller spec file for Mac → `.app` → unsigned DMG (`packaging/pyinstaller/scriber-mac.spec`)
+- [x] PyInstaller spec file for Mac CLI → Homebrew tarball (`packaging/pyinstaller/scriber-cli-mac.spec`)
+- [x] PyInstaller spec file for Windows → `.exe` → zip (`packaging/pyinstaller/scriber-win.spec`)
 - [x] GitHub Actions workflow: build Mac CLI tarball and GitHub release on tag push (`.github/workflows/release.yml`)
 - [x] Homebrew formula installs Apple Silicon CLI bundle under `libexec` with `bin/scriber` symlink
 - [x] Homebrew release `v0.1.2` published from the public repo with working tap/install flow

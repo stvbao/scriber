@@ -30,7 +30,7 @@ jobs:
           PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller
         run: |
           source $HOME/.cargo/env
-          uv run pyinstaller scriber-cli-mac.spec --noconfirm
+          uv run pyinstaller packaging/pyinstaller/scriber-cli-mac.spec --noconfirm
 
       - name: Extract version from tag
         id: version
@@ -78,7 +78,7 @@ jobs:
 
             **Homebrew (macOS CLI)**
             ```
-            brew tap stvbao/scriber https://github.com/stvbao/scriber
+            brew tap stvbao/Scriber https://github.com/stvbao/Scriber
             brew install scriber
             ```
 
@@ -89,5 +89,5 @@ jobs:
             sha256 from that tarball so Homebrew installs the new version.
 
             ## What's new
-            See [PLAN.md](https://github.com/stvbao/scriber/blob/main/PLAN.md) for details.
+            See [PLAN.md](https://github.com/stvbao/Scriber/blob/main/docs/PLAN.md) for details.
           files: artifacts/*

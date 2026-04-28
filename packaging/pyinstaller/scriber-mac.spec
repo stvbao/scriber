@@ -1,8 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec for Windows (x86_64)
-# Produces: dist/Scriber/  →  Scriber-<ver>-windows.zip (via CI)
+# PyInstaller spec for macOS (Apple Silicon, arm64)
+# Produces: dist/Scriber.app  +  dist/Scriber-<ver>-macos-arm64.tar.gz (via CI)
 
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
+from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs, collect_submodules
+
+ROOT = Path(SPECPATH).resolve().parents[1]
 
 datas = []
 binaries = []
@@ -11,7 +15,6 @@ hiddenimports = []
 datas += collect_data_files('scriber.gui.assets')
 
 # Full collection for every package that has native extensions or lazy imports
-# mlx / mlx_whisper intentionally omitted (Apple Silicon only)
 _COLLECT = [
     'av',
     'ctranslate2',
@@ -44,11 +47,17 @@ for pkg in _COLLECT:
         binaries += b
         hiddenimports += h
     except Exception:
-        pass
+        pass  # package not installed (e.g. CUDA-only wheels absent on Mac)
+
+# MLX packages raise during import on headless builders, so collect the files
+# directly instead of relying on import-time module discovery.
+datas += collect_data_files('mlx', include_py_files=True)
+datas += collect_data_files('mlx_whisper', include_py_files=True)
+binaries += collect_dynamic_libs('mlx')
 
 a = Analysis(
-    ['scriber/__main__.py'],
-    pathex=['.'],
+    [str(ROOT / 'scriber' / '__main__.py')],
+    pathex=[str(ROOT)],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports + [
@@ -85,8 +94,6 @@ a = Analysis(
         'jupyter',
         'notebook',
         'PIL',
-        'mlx',
-        'mlx_whisper',
     ],
     noarchive=False,
 )
@@ -98,21 +105,18 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Scriber',
+    name='scriber',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    # console=False: no terminal window on double-click; stdout still works
-    # when launched from cmd.exe / PowerShell because the parent console is
-    # inherited. This gives a clean GUI experience AND a working CLI.
+    upx=False,         # UPX breaks some dylibs on macOS
     console=False,
     disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
+    argv_emulation=True,
+    target_arch=None,  # uses current arch (arm64 on macos-14 runner)
     codesign_identity=None,
     entitlements_file=None,
-    icon='Assets/icon.ico',
+    icon=str(ROOT / 'packaging' / 'assets' / 'icon.icns'),
 )
 
 coll = COLLECT(
@@ -120,7 +124,35 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
-    name='Scriber',
+    name='scriber',
+)
+
+app = BUNDLE(
+    coll,
+    name='Scriber.app',
+    icon=str(ROOT / 'packaging' / 'assets' / 'icon.icns'),
+    bundle_identifier='com.stvbao.scriber',
+    info_plist={
+        'CFBundleName': 'Scriber',
+        'CFBundleDisplayName': 'Scriber',
+        'CFBundleShortVersionString': '0.1.2',
+        'CFBundleVersion': '0.1.2',
+        'NSHighResolutionCapable': True,
+        'NSRequiresAquaSystemAppearance': False,
+        'LSMinimumSystemVersion': '14.0',
+        'NSHumanReadableCopyright': 'Copyright © 2025 stvbao',
+        # Allow opening audio files by drag-drop onto the dock icon
+        'CFBundleDocumentTypes': [
+            {
+                'CFBundleTypeName': 'Audio File',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': [
+                    'public.mp3', 'public.mpeg-4-audio', 'com.apple.m4a-audio',
+                    'public.wav', 'public.aiff-audio', 'public.ogg-audio',
+                ],
+            }
+        ],
+    },
 )

@@ -1,10 +1,10 @@
 # Scriber — Windows install script
-# Usage: powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/stvbao/scriber/main/scripts/install.ps1 | iex"
+# Usage: powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/stvbao/Scriber/main/scripts/install.ps1 | iex"
 #
 # Installs to %LOCALAPPDATA%\Scriber and adds it to the user PATH.
 
 $ErrorActionPreference = "Stop"
-$Repo = "stvbao/scriber"
+$Repo = "stvbao/Scriber"
 $InstallDir = "$env:LOCALAPPDATA\Scriber"
 
 function Write-Step($msg) { Write-Host "  $msg" -ForegroundColor Cyan }

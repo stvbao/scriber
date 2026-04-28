@@ -2,9 +2,11 @@
 # PyInstaller spec for the macOS CLI bundle (Apple Silicon, arm64).
 # Produces: dist/scriber-cli/  ->  scriber-<ver>-macos-arm64.tar.gz (via CI)
 
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs
+
+ROOT = Path(SPECPATH).resolve().parents[1]
 
 datas = []
 binaries = []
@@ -111,8 +113,8 @@ datas += collect_data_files('mlx_whisper', include_py_files=True)
 binaries += collect_dynamic_libs('mlx')
 
 a = Analysis(
-    ['scriber/__main__.py'],
-    pathex=['.'],
+    [str(ROOT / 'scriber' / '__main__.py')],
+    pathex=[str(ROOT)],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports + [

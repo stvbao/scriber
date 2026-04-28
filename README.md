@@ -1,16 +1,16 @@
 # Scriber
 
-![GitHub release](https://img.shields.io/github/v/release/stvbao/scriber) ![License](https://img.shields.io/github/license/stvbao/scriber)
+![GitHub release](https://img.shields.io/github/v/release/stvbao/Scriber) ![License](https://img.shields.io/github/license/stvbao/Scriber)
 
 Transcription tool built for social scientists and qualitative researchers.
 
 Drop in an audio file, get a transcript. Scriber runs entirely on your own machine — no cloud service, no subscription, and once the model downloads it works offline. Your recordings stay on your desk.
 
-![Scriber screenshot](Assets/screenshot.png)
+![Scriber screenshot](docs/assets/screenshot.png)
 
 ## Table of Contents
 
-[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Models and Platform Support](#models-and-platform-support) · [CLI Reference](#cli-reference) · [Data Privacy](#data-privacy) · [Roadmap](#roadmap) · [License](#license) · [Credits](#credits)
+[Features](#features) · [Installation](#installation) · [How to Use](#how-to-use) · [Models and Platform Support](#models-and-platform-support) · [CLI Reference](#cli-reference) · [Data Privacy](#data-privacy) · [Roadmap](#roadmap) · [License](#license) · [Credits](#credits)
 
 ## Features
 
@@ -31,17 +31,19 @@ Drop in an audio file, get a transcript. Scriber runs entirely on your own machi
 **Homebrew (recommended)** — Apple Silicon only:
 
 ```bash
-brew tap stvbao/scriber https://github.com/stvbao/scriber
+brew tap stvbao/Scriber https://github.com/stvbao/Scriber
 brew install scriber
 ```
 
 Intel Mac users need to install from source — Homebrew support for Intel is on the [roadmap](#roadmap).
 
+
+
 **From source** — any Mac (requires [uv](https://docs.astral.sh/uv/)):
 
 ```bash
-git clone https://github.com/stvbao/scriber.git
-cd scriber
+git clone https://github.com/stvbao/Scriber.git
+cd Scriber
 uv sync
 ```
 
@@ -50,8 +52,8 @@ uv sync
 A packaged Windows release is on the [roadmap](#roadmap). To install on Windows today, first install Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```powershell
-git clone https://github.com/stvbao/scriber.git
-cd scriber
+git clone https://github.com/stvbao/Scriber.git
+cd Scriber
 uv sync
 ```
 
@@ -80,15 +82,29 @@ The model downloads once and is cached locally. Annotation works best when speak
 
 Scriber uses two transcription backends: [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) on Apple Silicon and [faster-whisper](https://github.com/SYSTRAN/faster-whisper) everywhere else. The `auto` setting picks the right one for your machine.
 
-| Platform | Device | Backend | Supported models |
-|---|---|---|---|
-| Apple Silicon macOS 14+ | MLX | mlx-whisper | All models |
-| Apple Silicon macOS 13 | CPU | faster-whisper | All models |
-| Intel macOS | CPU | faster-whisper | All models |
-| Windows/Linux with NVIDIA GPU | CUDA | faster-whisper | All models |
-| Windows or Linux, CPU only | CPU | faster-whisper | All models |
+**Device:**
 
-Default model: `large-v3-turbo` — fast and accurate for most recordings. Available models from most to least capable: `large-v3-turbo`, `large-v3`, `large-v2`, `medium`, `small`, `base`, `tiny`. Models download on first use and are reused from the local cache. When translation is enabled, Scriber automatically switches to `large-v3` because the turbo variant does not support translation.
+| Platform | Hardware | Backend | Speed |
+|---|---|---|---|
+| Mac (M1–M5) | Apple Silicon, macOS 14+ | MLX-Whisper (MLX) | Very fast |
+| Mac (M1–M5) | Apple Silicon, macOS 13 | faster-whisper (CPU) | Good |
+| Mac | Intel | faster-whisper (CPU) | Moderate |
+| Windows/Linux | NVIDIA GPU | faster-whisper (CUDA) | Fast |
+| Windows/Linux | CPU only | faster-whisper (CPU) | Slow but works |
+
+**Models:**
+
+| Model | Size | Speed | Accuracy |
+|---|---|---|---|
+| tiny | 39M | ~10x | Basic |
+| base | 74M | ~7x | Decent |
+| small | 244M | ~4x | Good |
+| medium | 769M | ~2x | Very good |
+| large-v2 | 1550M | 1x | Excellent |
+| large-v3 | 1550M | 1x | Excellent |
+| **large-v3-turbo** | **809M** | **~8x** | **Excellent (recommended)** |
+
+Default model: `large-v3-turbo`. Models download on first use and are reused from the local cache. When translation is enabled, Scriber automatically switches to `large-v3` because the turbo variant does not support translation.
 
 ## CLI Reference
 
@@ -157,7 +173,7 @@ Scriber is under active development. Planned next:
 - **Packaged releases** — a standalone macOS `.app` and a Windows `.exe`
 - **Text translation via NLLB-200** — translate transcripts to English at the text level, compatible with all models including turbo
 
-For the full engineering notes and task list, see [PLAN.md](./PLAN.md).
+For the full engineering notes and task list, see [docs/PLAN.md](./docs/PLAN.md).
 
 ## License
 
