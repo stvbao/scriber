@@ -49,17 +49,37 @@ uv sync
 
 ### Windows
 
-**Installer** — Windows 10/11:
+**PowerShell installer (recommended)** — Windows 10/11:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/stvbao/Scriber/main/scripts/install.ps1 | iex"
 ```
 
-This downloads the latest `Scriber-<version>-windows-installer.exe` release, installs it to `%LOCALAPPDATA%\Scriber`, adds it to your user `PATH`, creates Start Menu and Desktop shortcuts, and registers an uninstaller in Windows Settings. A portable `Scriber-<version>-windows.zip` is also published for manual installs and troubleshooting.
+This downloads the latest Windows installer, installs Scriber to `%LOCALAPPDATA%\Scriber`, adds it to your user `PATH`, creates Start Menu and Desktop shortcuts, and registers an uninstaller in Windows Settings.
+
+**Download the installer manually** — from the latest [GitHub release](https://github.com/stvbao/Scriber/releases/latest), download and run:
+
+```text
+Scriber-0.1.3-windows-installer.exe
+```
+
+**Portable zip** — from the latest [GitHub release](https://github.com/stvbao/Scriber/releases/latest), download:
+
+```text
+Scriber-0.1.3-windows.zip
+```
+
+Extract the whole zip folder, then run:
+
+```text
+Scriber\Scriber.exe
+```
+
+Do not move `Scriber.exe` out of the extracted folder; it needs the bundled files beside it.
 
 The Windows app is currently unsigned, so Windows SmartScreen may show a warning the first time you open it. Click **More info** → **Run anyway** if you trust this release.
 
-**From source** — if no packaged Windows release is available yet, first install Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+**From source** — for development or troubleshooting, first install Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```powershell
 git clone https://github.com/stvbao/Scriber.git
