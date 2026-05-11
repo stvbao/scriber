@@ -49,7 +49,17 @@ uv sync
 
 ### Windows
 
-A packaged Windows release is on the [roadmap](#roadmap). To install on Windows today, first install Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+**Installer** — Windows 10/11:
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/stvbao/Scriber/main/scripts/install.ps1 | iex"
+```
+
+This downloads the latest `Scriber-<version>-windows-installer.exe` release, installs it to `%LOCALAPPDATA%\Scriber`, adds it to your user `PATH`, creates Start Menu and Desktop shortcuts, and registers an uninstaller in Windows Settings. A portable `Scriber-<version>-windows.zip` is also published for manual installs and troubleshooting.
+
+The Windows app is currently unsigned, so Windows SmartScreen may show a warning the first time you open it. Click **More info** → **Run anyway** if you trust this release.
+
+**From source** — if no packaged Windows release is available yet, first install Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```powershell
 git clone https://github.com/stvbao/Scriber.git
@@ -170,7 +180,7 @@ Scriber is under active development. Planned next:
 
 - **Intel Mac Homebrew support** — publish an `x86_64` CLI bundle so Intel Mac users can install via Homebrew
 - **Homebrew core support** — submit Scriber to homebrew-core so users can install with `brew install scriber` without adding a tap
-- **Packaged releases** — a standalone macOS `.app` and a Windows `.exe`
+- **Packaged releases** — a standalone macOS `.app` and signed Windows installer
 - **Text translation via NLLB-200** — translate transcripts to English at the text level, compatible with all models including turbo
 
 For the full engineering notes and task list, see [docs/PLAN.md](./docs/PLAN.md).

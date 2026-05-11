@@ -27,7 +27,7 @@ A desktop app + CLI tool that transcribes audio files (interviews, focus groups,
 | Speaker annotation | pyannote v4 | Best open-source diarization |
 | Packaging | PyInstaller | Single binary, no Python install needed |
 | Distribution (Mac) | Homebrew tap + packaged CLI tarball | Current public release path; arm64-only for now |
-| Distribution (Windows) | Source run today; PowerShell install script + .exe zip later | Windows packaging exists in-repo but public packaged release is paused |
+| Distribution (Windows) | Inno Setup installer + PyInstaller portable zip | Unsigned installer/zip; code signing can come later |
 
 ---
 
@@ -247,17 +247,20 @@ scriber transcribe interview.m4a --annotate --hf-token hf_xxxxx
 ### Phase 5 — Packaging
 - [x] PyInstaller spec file for Mac → `.app` → unsigned DMG (`packaging/pyinstaller/scriber-mac.spec`)
 - [x] PyInstaller spec file for Mac CLI → Homebrew tarball (`packaging/pyinstaller/scriber-cli-mac.spec`)
-- [x] PyInstaller spec file for Windows → `.exe` → zip (`packaging/pyinstaller/scriber-win.spec`)
-- [x] GitHub Actions workflow: build Mac CLI tarball and GitHub release on tag push (`.github/workflows/release.yml`)
+- [x] PyInstaller spec file for Windows → `.exe` → portable zip (`packaging/pyinstaller/scriber-win.spec`)
+- [x] Inno Setup script for Windows → per-user installer (`packaging/windows/scriber.iss`)
+- [x] GitHub Actions workflow: build Mac CLI tarball, Windows portable zip, Windows installer, and GitHub release on tag push (`.github/workflows/release.yml`)
 - [x] Homebrew formula installs Apple Silicon CLI bundle under `libexec` with `bin/scriber` symlink
 - [x] Homebrew release `v0.1.2` published from the public repo with working tap/install flow
-- [x] PowerShell install script for Windows (`scripts/install.ps1`) kept for future packaged Windows releases
+- [x] PowerShell install script for Windows (`scripts/install.ps1`) downloads latest installer, installs to `%LOCALAPPDATA%\Scriber`, updates user PATH, creates shortcuts, and falls back to the portable zip for older releases
 - [x] Add real `.icns` / `.ico` assets to packaged builds
 - [ ] Validate macOS Dock name/icon through `dist/Scriber.app` (terminal-launched Python still appears as Python in Dock)
 - [x] Trim PyInstaller specs (first pass) to reduce bundled optional dependency trees and artifact size
 - [ ] Add Intel macOS Homebrew support: build `x86_64` CLI tarball, publish both Mac artifacts, branch `Formula/scriber.rb` with `on_arm` / `on_intel`, and test on a real Intel Mac
 - [ ] Restore public DMG release path once lightweight/shared-worker packaging is ready
-- [ ] Restore public packaged Windows release path once packaging/test flow is ready
+- [x] Restore public packaged Windows release path with unsigned `Scriber-<version>-windows-installer.exe` and portable `Scriber-<version>-windows.zip`
+- [ ] Test Windows packaged release on a real Windows 10 22H2 machine
+- [ ] Add Windows code signing once distribution needs exceed unsigned installer warnings
 - [ ] Split packaging into a lightweight GUI shell plus shared heavy worker executable (`scriber-worker`) so app launch stays fast and the transcription runtime is loaded only when needed
 - [ ] Point both packaged GUI and packaged CLI at the shared worker runtime instead of shipping separate heavy execution paths
 - [ ] Resolve pyannote/torchcodec native FFmpeg packaging without requiring user-installed FFmpeg

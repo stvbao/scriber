@@ -25,17 +25,55 @@ try {
 }
 
 $Version = $Release.tag_name -replace '^v', ''
+$InstallerName = "Scriber-${Version}-windows-installer.exe"
 $ZipName = "Scriber-${Version}-windows.zip"
+$InstallerAsset = $Release.assets | Where-Object { $_.name -eq $InstallerName }
 $Asset = $Release.assets | Where-Object { $_.name -eq $ZipName }
 
-if (-not $Asset) {
-    Write-Err "No Windows release found for v$Version (expected '$ZipName')."
+if (-not $InstallerAsset -and -not $Asset) {
+    Write-Err "No Windows release found for v$Version (expected '$InstallerName' or '$ZipName')."
 }
 
-$ZipUrl = $Asset.browser_download_url
 Write-Ok "Found Scriber v$Version"
 
+# ── Installer package ─────────────────────────────────────────────────────────
+if ($InstallerAsset) {
+    $InstallerUrl = $InstallerAsset.browser_download_url
+    $TmpInstaller = "$env:TEMP\$InstallerName"
+
+    Write-Step "Downloading $InstallerName..."
+    try {
+        Invoke-WebRequest -Uri $InstallerUrl -OutFile $TmpInstaller -UseBasicParsing
+    } catch {
+        Write-Err "Download failed: $_"
+    }
+    Write-Ok "Download complete"
+
+    Write-Step "Running installer..."
+    $Process = Start-Process -FilePath $TmpInstaller `
+        -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=`"desktopicon,addtopath`"" `
+        -Wait `
+        -PassThru
+    Remove-Item $TmpInstaller -Force
+
+    if ($Process.ExitCode -ne 0) {
+        Write-Err "Installer failed with exit code $($Process.ExitCode)."
+    }
+
+    Write-Host ""
+    Write-Host "Scriber v$Version installed successfully!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Double-click Scriber on your Desktop or Start Menu to open the app."
+    Write-Host "  Or open a new terminal and run: Scriber transcribe interview.m4a"
+    Write-Host ""
+    Write-Host "Note: Windows SmartScreen may warn on first launch because the app"
+    Write-Host "is unsigned. Click 'More info' -> 'Run anyway' to proceed."
+    Write-Host ""
+    exit 0
+}
+
 # ── Download ──────────────────────────────────────────────────────────────────
+$ZipUrl = $Asset.browser_download_url
 $TmpZip = "$env:TEMP\$ZipName"
 Write-Step "Downloading $ZipName..."
 try {

@@ -52,9 +52,65 @@ jobs:
           name: cli-mac-artifacts
           path: dist/scriber-*-macos-arm64.tar.gz
 
-  # ── GitHub Release (CLI only) ────────────────────────────────────────────────
+  # ── Windows GUI/CLI bundle ───────────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python and install dependencies
+        run: |
+          uv python install 3.12
+          uv sync --all-extras
+
+      - name: Build Windows app with PyInstaller
+        env:
+          PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}\pyinstaller
+        run: uv run pyinstaller packaging/pyinstaller/scriber-win.spec --noconfirm
+
+      - name: Smoke test executable
+        run: .\dist\Scriber\Scriber.exe --help
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Windows zip
+        shell: pwsh
+        run: |
+          $Version = "${{ steps.version.outputs.VERSION }}"
+          Compress-Archive -Path "dist\Scriber" -DestinationPath "dist\Scriber-$Version-windows.zip" -Force
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $Version = "${{ steps.version.outputs.VERSION }}"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            /DMyAppVersion="$Version" `
+            /DSourceDir="$PWD\dist\Scriber" `
+            /DOutputDir="$PWD\dist" `
+            packaging\windows\scriber.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-artifacts
+          path: |
+            dist/Scriber-*-windows.zip
+            dist/Scriber-*-windows-installer.exe
+
+  # ── GitHub Release ───────────────────────────────────────────────────────────
   release:
-    needs: [build-cli-mac]
+    needs: [build-cli-mac, build-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -82,11 +138,24 @@ jobs:
             brew install scriber
             ```
 
-            This release publishes the CLI tarball only:
+            **Windows**
+            ```powershell
+            powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/stvbao/Scriber/main/scripts/install.ps1 | iex"
+            ```
+
+            Or download and run:
+            `Scriber-${{ steps.version.outputs.VERSION }}-windows-installer.exe`
+
+            Portable zip:
+            `Scriber-${{ steps.version.outputs.VERSION }}-windows.zip`
+
+            This release publishes:
             `scriber-${{ steps.version.outputs.VERSION }}-macos-arm64.tar.gz`
+            `Scriber-${{ steps.version.outputs.VERSION }}-windows.zip`
+            `Scriber-${{ steps.version.outputs.VERSION }}-windows-installer.exe`
 
             After the release is published, update `Formula/scriber.rb` with the
-            sha256 from that tarball so Homebrew installs the new version.
+            sha256 from the macOS tarball so Homebrew installs the new version.
 
             ## What's new
             See [PLAN.md](https://github.com/stvbao/Scriber/blob/main/docs/PLAN.md) for details.
