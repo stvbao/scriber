@@ -95,27 +95,17 @@ end;
 procedure RemoveFromUserPath(Entry: string);
 var
   ExistingPath: string;
-  Parts: TArrayOfString;
-  I: Integer;
   NewPath: string;
 begin
   ExistingPath := GetUserPath();
   if ExistingPath = '' then
     Exit;
 
-  StringChangeEx(ExistingPath, Entry + ';', '', True);
-  StringChangeEx(ExistingPath, ';' + Entry, '', True);
-
-  Parts := SplitString(ExistingPath, ';');
-  NewPath := '';
-  for I := 0 to GetArrayLength(Parts) - 1 do begin
-    if (Parts[I] <> '') and (CompareText(Parts[I], Entry) <> 0) then begin
-      if NewPath = '' then
-        NewPath := Parts[I]
-      else
-        NewPath := NewPath + ';' + Parts[I];
-    end;
-  end;
+  NewPath := ExistingPath;
+  StringChangeEx(NewPath, Entry + ';', '', True);
+  StringChangeEx(NewPath, ';' + Entry, '', True);
+  if CompareText(NewPath, Entry) = 0 then
+    NewPath := '';
 
   RegWriteStringValue(HKEY_CURRENT_USER, EnvRegKey, 'Path', NewPath);
 end;
