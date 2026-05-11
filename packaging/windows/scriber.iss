@@ -55,9 +55,9 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,Scriber}"; Fl
 [Code]
 const
   EnvRegKey = 'Environment';
-  HWND_BROADCAST = $FFFF;
-  WM_SETTINGCHANGE = $001A;
-  SMTO_ABORTIFHUNG = $0002;
+  ScriberHwndBroadcast = $FFFF;
+  ScriberWmSettingChange = $001A;
+  ScriberSmtoAbortIfHung = $0002;
 
 function SendMessageTimeout(hWnd: LongWord; Msg: LongWord; wParam: LongWord; lParam: String; fuFlags: LongWord; uTimeout: LongWord; var lpdwResult: LongWord): LongWord;
 external 'SendMessageTimeoutW@user32.dll stdcall';
@@ -124,7 +124,7 @@ procedure BroadcastEnvironmentChange();
 var
   ResultCode: LongWord;
 begin
-  SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 'Environment', SMTO_ABORTIFHUNG, 5000, ResultCode);
+  SendMessageTimeout(ScriberHwndBroadcast, ScriberWmSettingChange, 0, 'Environment', ScriberSmtoAbortIfHung, 5000, ResultCode);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
