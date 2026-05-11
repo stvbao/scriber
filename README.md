@@ -57,23 +57,11 @@ powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/stv
 
 This downloads the latest Windows installer, installs Scriber to `%LOCALAPPDATA%\Scriber`, adds it to your user `PATH`, creates Start Menu and Desktop shortcuts, and registers an uninstaller in Windows Settings.
 
-**Download the installer manually** — from the latest [GitHub release](https://github.com/stvbao/Scriber/releases/latest), download and run:
+**Download the installer manually** — download and run [Scriber-0.1.3-windows-installer.exe](https://github.com/stvbao/Scriber/releases/download/v0.1.3/Scriber-0.1.3-windows-installer.exe).
 
-```text
-Scriber-0.1.3-windows-installer.exe
-```
+**Portable zip** — download [Scriber-0.1.3-windows.zip](https://github.com/stvbao/Scriber/releases/download/v0.1.3/Scriber-0.1.3-windows.zip).
 
-**Portable zip** — from the latest [GitHub release](https://github.com/stvbao/Scriber/releases/latest), download:
-
-```text
-Scriber-0.1.3-windows.zip
-```
-
-Extract the whole zip folder, then run:
-
-```text
-Scriber\Scriber.exe
-```
+Extract the whole zip folder, then run `Scriber\Scriber.exe`.
 
 Do not move `Scriber.exe` out of the extracted folder; it needs the bundled files beside it.
 

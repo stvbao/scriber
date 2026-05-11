@@ -143,16 +143,14 @@ jobs:
             powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/stvbao/Scriber/main/scripts/install.ps1 | iex"
             ```
 
-            Or download and run:
-            `Scriber-${{ steps.version.outputs.VERSION }}-windows-installer.exe`
+            Or download and run [Scriber-${{ steps.version.outputs.VERSION }}-windows-installer.exe](https://github.com/stvbao/Scriber/releases/download/v${{ steps.version.outputs.VERSION }}/Scriber-${{ steps.version.outputs.VERSION }}-windows-installer.exe).
 
-            Portable zip:
-            `Scriber-${{ steps.version.outputs.VERSION }}-windows.zip`
+            Portable zip: [Scriber-${{ steps.version.outputs.VERSION }}-windows.zip](https://github.com/stvbao/Scriber/releases/download/v${{ steps.version.outputs.VERSION }}/Scriber-${{ steps.version.outputs.VERSION }}-windows.zip)
 
             This release publishes:
-            `scriber-${{ steps.version.outputs.VERSION }}-macos-arm64.tar.gz`
-            `Scriber-${{ steps.version.outputs.VERSION }}-windows.zip`
-            `Scriber-${{ steps.version.outputs.VERSION }}-windows-installer.exe`
+            - [scriber-${{ steps.version.outputs.VERSION }}-macos-arm64.tar.gz](https://github.com/stvbao/Scriber/releases/download/v${{ steps.version.outputs.VERSION }}/scriber-${{ steps.version.outputs.VERSION }}-macos-arm64.tar.gz)
+            - [Scriber-${{ steps.version.outputs.VERSION }}-windows-installer.exe](https://github.com/stvbao/Scriber/releases/download/v${{ steps.version.outputs.VERSION }}/Scriber-${{ steps.version.outputs.VERSION }}-windows-installer.exe)
+            - [Scriber-${{ steps.version.outputs.VERSION }}-windows.zip](https://github.com/stvbao/Scriber/releases/download/v${{ steps.version.outputs.VERSION }}/Scriber-${{ steps.version.outputs.VERSION }}-windows.zip)
 
             After the release is published, update `Formula/scriber.rb` with the
             sha256 from the macOS tarball so Homebrew installs the new version.
