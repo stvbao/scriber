@@ -1,5 +1,6 @@
 import io
 import json
+from pathlib import Path
 from types import SimpleNamespace
 import sys
 
@@ -7,6 +8,17 @@ import numpy as np
 import pytest
 
 from scriber.core.transcribe import Segment
+
+
+def test_macos_cli_bundle_keeps_required_torch_testing_packages():
+    spec = (
+        Path(__file__).parents[1] / "packaging" / "pyinstaller" / "scriber-cli-mac.spec"
+    ).read_text(encoding="utf-8")
+
+    assert "'torch.testing'," not in spec
+    assert "'torch.testing._internal'," not in spec
+    assert "'torch.testing._internal.logging_tensor'," in spec
+    assert "'torch.testing._internal.distributed.fake_pg'," in spec
 
 
 def test_cli_annotation_passes_loaded_audio_to_diarize(monkeypatch, tmp_path):
